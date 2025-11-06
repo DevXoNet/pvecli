@@ -1,0 +1,31 @@
+# Build artifacts
+pvecli
+_build/
+release/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Documentation (not needed in image)
+documentation/
+*.md
+!README.md
+
+# Test files
+*_test.go
+testdata/
+
+# Config files (user will mount their own)
+config.yaml
+.pvecli/
+
+# Misc
+.DS_Store
+*.swp
+*.swo
+*~

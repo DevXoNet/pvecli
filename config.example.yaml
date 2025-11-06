@@ -1,0 +1,23 @@
+# Example configuration file for pvecli
+# Copy this to ~/.pvecli/config.yaml and update with your values
+
+# Proxmox API URL
+api_url: "https://your-proxmox-server:8006/api2/json"
+
+# API Token ID (format: user@realm!tokenid)
+token_id: "root@pam!your-token-id"
+
+# API Token Secret
+token_secret: "your-token-secret"
+
+# Skip TLS certificate verification (use with caution)
+insecure_skip_verify: false
+
+# Output format for commands (json, yaml, or text)
+# - json: Output as JSON (default)
+# - yaml: Output as YAML
+# - text: Output as plain text
+output_format: json
+
+# Enable debug mode
+debug: false

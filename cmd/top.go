@@ -1,0 +1,379 @@
+// Copyright 2025 DevXo part of vByte Ltd
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package cmd
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"sort"
+	"strings"
+	"time"
+
+	"pvecli/config"
+	"pvecli/internal/proxmox"
+
+	"github.com/olekukonko/tablewriter"
+	"github.com/spf13/cobra"
+)
+
+var (
+	topRefreshInterval int
+	topSortBy          string
+)
+
+var topCmd = &cobra.Command{
+	Use:   "top",
+	Short: "Real-time monitoring of VMs and containers",
+	Long:  "Display real-time CPU, RAM, disk I/O, and network statistics for all VMs and containers",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.LoadConfig()
+		if err != nil {
+			return err
+		}
+
+		client := proxmox.NewClient(cfg)
+
+		// Clear screen and hide cursor
+		clearScreen()
+		hideCursor()
+		defer showCursor()
+
+		// Main monitoring loop
+		for {
+			// Get all nodes
+			nodes, err := client.GetNodes()
+			if err != nil {
+				return err
+			}
+
+			// Collect stats from all nodes
+			var allStats []vmStats
+			for _, node := range nodes {
+				// Get VMs
+				vms, err := client.GetVMs(node.Node)
+				if err != nil {
+					continue
+				}
+
+				for _, vm := range vms {
+					stats, err := getVMStats(client, node.Node, vm.VMID, "qemu")
+					if err != nil {
+						continue
+					}
+					stats.Node = node.Node
+					stats.Type = "VM"
+					allStats = append(allStats, stats)
+				}
+
+				// Get containers
+				containers, err := client.GetContainers(node.Node)
+				if err != nil {
+					continue
+				}
+
+				for _, ct := range containers {
+					stats, err := getVMStats(client, node.Node, ct.VMID, "lxc")
+					if err != nil {
+						continue
+					}
+					stats.Node = node.Node
+					stats.Type = "CT"
+					allStats = append(allStats, stats)
+				}
+			}
+
+			// Sort stats
+			sortStats(allStats, topSortBy)
+
+			// Display
+			clearScreen()
+			displayTop(allStats)
+
+			// Wait for refresh interval
+			time.Sleep(time.Duration(topRefreshInterval) * time.Second)
+		}
+	},
+}
+
+type vmStats struct {
+	VMID      int
+	Name      string
+	Node      string
+	Type      string
+	Status    string
+	CPUUsage  float64
+	CPUCores  int
+	MemUsage  uint64
+	MemTotal  uint64
+	DiskRead  uint64
+	DiskWrite uint64
+	NetIn     uint64
+	NetOut    uint64
+}
+
+func getVMStats(client *proxmox.Client, node string, vmid int, vmType string) (vmStats, error) {
+	var stats vmStats
+	stats.VMID = vmid
+
+	// Get current status
+	status, err := client.GetVMStatus(node, vmid, vmType)
+	if err != nil {
+		return stats, err
+	}
+
+	stats.Name = status.Name
+	stats.Status = status.Status
+
+	// Only get detailed stats for running VMs
+	if status.Status != "running" {
+		return stats, nil
+	}
+
+	// CPU usage (percentage)
+	if cpu, ok := status.RawData["cpu"].(float64); ok {
+		stats.CPUUsage = cpu * 100
+	}
+
+	// CPU cores
+	if cpus, ok := status.RawData["cpus"].(float64); ok {
+		stats.CPUCores = int(cpus)
+	}
+
+	// Memory
+	if mem, ok := status.RawData["mem"].(float64); ok {
+		stats.MemUsage = uint64(mem)
+	}
+	if maxmem, ok := status.RawData["maxmem"].(float64); ok {
+		stats.MemTotal = uint64(maxmem)
+	}
+
+	// Disk I/O
+	if diskread, ok := status.RawData["diskread"].(float64); ok {
+		stats.DiskRead = uint64(diskread)
+	}
+	if diskwrite, ok := status.RawData["diskwrite"].(float64); ok {
+		stats.DiskWrite = uint64(diskwrite)
+	}
+
+	// Network I/O
+	if netin, ok := status.RawData["netin"].(float64); ok {
+		stats.NetIn = uint64(netin)
+	}
+	if netout, ok := status.RawData["netout"].(float64); ok {
+		stats.NetOut = uint64(netout)
+	}
+
+	return stats, nil
+}
+
+func sortStats(stats []vmStats, sortBy string) {
+	sort.Slice(stats, func(i, j int) bool {
+		switch sortBy {
+		case "cpu":
+			return stats[i].CPUUsage > stats[j].CPUUsage
+		case "mem":
+			return stats[i].MemUsage > stats[j].MemUsage
+		case "disk":
+			return (stats[i].DiskRead + stats[i].DiskWrite) > (stats[j].DiskRead + stats[j].DiskWrite)
+		case "net":
+			return (stats[i].NetIn + stats[i].NetOut) > (stats[j].NetIn + stats[j].NetOut)
+		default:
+			return stats[i].VMID < stats[j].VMID
+		}
+	})
+}
+
+func displayTop(stats []vmStats) {
+	// Header
+	fmt.Println("╔════════════════════════════════════════════════════════════════════════════════════════════════╗")
+	fmt.Printf("║  PVECLI TOP - Real-time VM/Container Monitor%58s║\n", "")
+	fmt.Printf("║  Refresh: %ds | Sort: %-10s | Time: %-20s%24s║\n", 
+		topRefreshInterval, topSortBy, time.Now().Format("2006-01-02 15:04:05"), "")
+	fmt.Println("╚════════════════════════════════════════════════════════════════════════════════════════════════╝")
+	fmt.Println()
+
+	// Summary
+	totalVMs := 0
+	runningVMs := 0
+	totalCPU := 0.0
+	totalMem := uint64(0)
+	totalMemUsed := uint64(0)
+
+	for _, s := range stats {
+		if s.Type == "VM" {
+			totalVMs++
+		}
+		if s.Status == "running" {
+			runningVMs++
+			totalCPU += s.CPUUsage
+			totalMem += s.MemTotal
+			totalMemUsed += s.MemUsage
+		}
+	}
+
+	avgCPU := 0.0
+	if runningVMs > 0 {
+		avgCPU = totalCPU / float64(runningVMs)
+	}
+	
+	memPercent := 0.0
+	if totalMem > 0 {
+		memPercent = float64(totalMemUsed) / float64(totalMem) * 100
+	}
+
+	fmt.Printf("VMs/CTs: %d total, %d running | Avg CPU: %.1f%% | Total Memory: %s / %s (%.1f%%)\n\n",
+		len(stats), runningVMs, avgCPU,
+		formatBytes(totalMemUsed), formatBytes(totalMem), memPercent)
+
+	// Table
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"ID", "NAME", "NODE", "TYPE", "STATUS", "CPU%", "CPU", "MEMORY", "MEM%", "DISK I/O", "NET I/O"})
+	table.SetBorder(false)
+	table.SetAutoWrapText(false)
+	table.SetColumnAlignment([]int{
+		tablewriter.ALIGN_RIGHT,  // ID
+		tablewriter.ALIGN_LEFT,   // NAME
+		tablewriter.ALIGN_LEFT,   // NODE
+		tablewriter.ALIGN_CENTER, // TYPE
+		tablewriter.ALIGN_CENTER, // STATUS
+		tablewriter.ALIGN_RIGHT,  // CPU%
+		tablewriter.ALIGN_CENTER, // CPU
+		tablewriter.ALIGN_RIGHT,  // MEMORY
+		tablewriter.ALIGN_RIGHT,  // MEM%
+		tablewriter.ALIGN_RIGHT,  // DISK I/O
+		tablewriter.ALIGN_RIGHT,  // NET I/O
+	})
+
+	for _, s := range stats {
+		if s.Status != "running" {
+			// Show stopped VMs with minimal info
+			table.Append([]string{
+				fmt.Sprintf("%d", s.VMID),
+				truncate(s.Name, 15),
+				s.Node,
+				s.Type,
+				s.Status,
+				"-",
+				"-",
+				"-",
+				"-",
+				"-",
+				"-",
+			})
+			continue
+		}
+
+		// CPU bar
+		cpuBar := makeBar(s.CPUUsage, 100, 10)
+		
+		// Memory percentage
+		memPercent := 0.0
+		if s.MemTotal > 0 {
+			memPercent = float64(s.MemUsage) / float64(s.MemTotal) * 100
+		}
+		memBar := makeBar(memPercent, 100, 10)
+
+		table.Append([]string{
+			fmt.Sprintf("%d", s.VMID),
+			truncate(s.Name, 15),
+			s.Node,
+			s.Type,
+			colorStatus(s.Status),
+			fmt.Sprintf("%.1f", s.CPUUsage),
+			cpuBar,
+			fmt.Sprintf("%s/%s", formatBytes(s.MemUsage), formatBytes(s.MemTotal)),
+			memBar,
+			fmt.Sprintf("R:%s W:%s", formatBytes(s.DiskRead), formatBytes(s.DiskWrite)),
+			fmt.Sprintf("↓%s ↑%s", formatBytes(s.NetIn), formatBytes(s.NetOut)),
+		})
+	}
+
+	table.Render()
+
+	// Footer
+	fmt.Println()
+	fmt.Println("Press Ctrl+C to exit | Sort by: --sort-by cpu|mem|disk|net")
+}
+
+func makeBar(value, max float64, width int) string {
+	if max == 0 {
+		return strings.Repeat("░", width)
+	}
+
+	filled := int(value / max * float64(width))
+	if filled > width {
+		filled = width
+	}
+
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
+	return fmt.Sprintf("%s %.1f%%", bar, value)
+}
+
+func colorStatus(status string) string {
+	switch status {
+	case "running":
+		return "✓ RUN"
+	case "stopped":
+		return "✗ STOP"
+	case "paused":
+		return "⏸ PAUSE"
+	default:
+		return status
+	}
+}
+
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max-3] + "..."
+}
+
+func formatBytes(bytes uint64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%dB", bytes)
+	}
+	div, exp := uint64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f%cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+func clearScreen() {
+	cmd := exec.Command("clear")
+	if os.Getenv("OS") == "Windows_NT" {
+		cmd = exec.Command("cmd", "/c", "cls")
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Run()
+}
+
+func hideCursor() {
+	fmt.Print("\033[?25l")
+}
+
+func showCursor() {
+	fmt.Print("\033[?25h")
+}
+
+func init() {
+	topCmd.Flags().IntVarP(&topRefreshInterval, "interval", "i", 2, "Refresh interval in seconds")
+	topCmd.Flags().StringVarP(&topSortBy, "sort-by", "s", "cpu", "Sort by: cpu, mem, disk, net, id")
+	rootCmd.AddCommand(topCmd)
+}
