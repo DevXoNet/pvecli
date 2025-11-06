@@ -97,14 +97,48 @@ output_format: json
 - **yaml**: YAML format, human-readable and easy to edit
 - **text**: Plain text format, simple key-value pairs
 
+## Available Commands
 
-## License
+### VM/Container Management
+- **list** - List all VMs and containers across the cluster
+- **info** - Show detailed VM/container configuration
+- **status** - Check VM/container status
+- **start** - Start a VM/container
+- **stop** - Stop a VM/container
+- **reboot** - Reboot a VM/container
+- **shutdown** - Gracefully shutdown a VM/container
+- **suspend** - Suspend and resume VMs
 
-Licensed under the [Apache License 2.0](./LICENSE).
+### Advanced Operations
+- **clone** - Clone VM templates (full/linked clones)
+- **migrate** - Migrate VM/container to another node
+- **backup** - Create and manage backups (PBS/NFS)
+- **snapshot** - Create and manage VM snapshots
+- **template** - Convert VM to template
+- **disk** - Disk management operations
 
----
+### Monitoring & Management
+- **top** - Real-time resource monitoring with graphs
+- **task** - Monitor and manage Proxmox tasks
+- **cluster** - View cluster information and health
+- **cluster update** - Update all cluster nodes
+
+### Configuration
+- **config** - Configure pvecli settings
+- **console** - Interactive console access (VNC/SPICE)
+
+For detailed documentation on each command, see the [documentation](./documentation/) directory.
+
 
 ## Disclaimer
 
 `pvecli` is an independent open-source project and is **not affiliated with, endorsed, or sponsored by Proxmox Server Solutions GmbH**.  
 All trademarks and product names, including **Proxmox**, are the property of their respective owners.
+
+
+## License
+
+Licensed under the [Apache License 2.0](./LICENSE).
+
+
+---
