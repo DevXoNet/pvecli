@@ -202,6 +202,40 @@ type Instance struct {
 	GuestAgent bool   `json:"-"` // has guest agent enabled?
 }
 
+// UnmarshalJSON implements custom unmarshaling to handle vmid as both string and int
+func (i *Instance) UnmarshalJSON(data []byte) error {
+	// Create a temporary struct with vmid as interface{} to handle both types
+	type Alias Instance
+	aux := &struct {
+		VMID interface{} `json:"vmid"`
+		*Alias
+	}{
+		Alias: (*Alias)(i),
+	}
+	
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	
+	// Handle vmid as either string or int
+	switch v := aux.VMID.(type) {
+	case string:
+		vmid, err := strconv.Atoi(v)
+		if err != nil {
+			return fmt.Errorf("invalid vmid string: %v", v)
+		}
+		i.VMID = vmid
+	case float64:
+		i.VMID = int(v)
+	case int:
+		i.VMID = v
+	default:
+		return fmt.Errorf("vmid has unexpected type: %T", v)
+	}
+	
+	return nil
+}
+
 type VM = Instance // for backward compatibility
 type instanceList struct {
 	Data []Instance `json:"data"`
