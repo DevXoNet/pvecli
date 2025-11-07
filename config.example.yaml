@@ -1,17 +1,31 @@
 # Example configuration file for pvecli
-# Copy this to ~/.pvecli/config.yaml and update with your values
+# Copy this to ~/.devxo/pve.yaml and update with your values
 
-# Proxmox API URL
-api_url: "https://your-proxmox-server:8006/api2/json"
+# Multiple environments/clusters configuration
+environments:
+  # Production cluster
+  prod:
+    api_url: "https://pve-prod.example.com:8006/api2/json"
+    token_id: "root@pam!prod-token"
+    token_secret: "your-prod-token-secret"
+    insecure_skip_verify: false
+  
+  # Development cluster
+  dev:
+    api_url: "https://pve-dev.example.com:8006/api2/json"
+    token_id: "root@pam!dev-token"
+    token_secret: "your-dev-token-secret"
+    insecure_skip_verify: true
+  
+  # Staging cluster
+  staging:
+    api_url: "https://pve-staging.example.com:8006/api2/json"
+    token_id: "root@pam!staging-token"
+    token_secret: "your-staging-token-secret"
+    insecure_skip_verify: false
 
-# API Token ID (format: user@realm!tokenid)
-token_id: "root@pam!your-token-id"
-
-# API Token Secret
-token_secret: "your-token-secret"
-
-# Skip TLS certificate verification (use with caution)
-insecure_skip_verify: false
+# Default environment to use when --env flag is not specified
+default_env: prod
 
 # Output format for commands (json, yaml, or text)
 # - json: Output as JSON (default)
@@ -21,3 +35,15 @@ output_format: json
 
 # Enable debug mode
 debug: false
+
+# ============================================
+# Legacy single-cluster format (deprecated)
+# ============================================
+# If you have only one cluster, you can still use the old format:
+#
+# api_url: "https://your-proxmox-server:8006/api2/json"
+# token_id: "root@pam!your-token-id"
+# token_secret: "your-token-secret"
+# insecure_skip_verify: false
+# output_format: json
+# debug: false

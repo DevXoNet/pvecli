@@ -71,19 +71,53 @@ In Proxmox Web UI:
 
 ### 2. Configure pvecli
 
+Run the interactive configuration wizard:
+
 ```bash
-./pvecli config
+pvecli config
 ```
 
 Enter when prompted:
-- API URL: `https://your-proxmox:8006/api2/json`
-- Token ID: `root@pam!cli`
-- Token Secret: `<your-secret>`
-- Skip TLS verification: `yes` (for self-signed certificates)
+- **Environment name**: Name for this cluster (e.g., `prod`, `dev`, `staging`)
+- **API URL**: `https://your-proxmox:8006/api2/json`
+- **Token ID**: `root@pam!cli`
+- **Token Secret**: `<your-secret>`
+- **Skip TLS verification**: `yes` (for self-signed certificates)
 
 Configuration is stored in `~/.devxo/pve.yaml`
 
-### 3. Configure Output Format
+### 3. Multi-Cluster Setup (Optional)
+
+To manage multiple Proxmox clusters, add additional environments:
+
+```bash
+# Add production cluster
+pvecli config
+# Enter: prod, https://pve-prod.example.com:8006/api2/json, credentials...
+
+# Add development cluster
+pvecli config
+# Enter: dev, https://pve-dev.example.com:8006/api2/json, credentials...
+
+# List all configured environments
+pvecli config list
+```
+
+**Using different environments:**
+
+```bash
+# Use default environment
+pvecli list
+
+# Use specific environment
+pvecli --env prod list
+pvecli -e dev start 100
+pvecli -e staging cluster
+```
+
+See [Multi-Cluster Guide](./MULTI_CLUSTER.md) for detailed setup instructions.
+
+### 4. Configure Output Format
 
 pvecli supports multiple output formats that can be configured in `~/.devxo/pve.yaml`:
 
@@ -96,6 +130,42 @@ output_format: json
 - **json** (default): Structured JSON output, ideal for scripting and parsing
 - **yaml**: YAML format, human-readable and easy to edit
 - **text**: Plain text format, simple key-value pairs
+
+## Quick Start Examples
+
+### Single Cluster
+
+```bash
+# List all VMs and containers
+pvecli list --table
+
+# Start a VM
+pvecli start 100
+
+# Check cluster status
+pvecli cluster
+
+# Real-time monitoring
+pvecli top
+```
+
+### Multi-Cluster Management
+
+```bash
+# List VMs in production cluster
+pvecli -e prod list --table
+
+# Start VM in development cluster
+pvecli -e dev start 100
+
+# Migrate VM in staging cluster
+pvecli -e staging migrate 200 node02
+
+# Check status across different clusters
+pvecli -e prod cluster
+pvecli -e dev cluster
+pvecli -e staging cluster
+```
 
 ## Available Commands
 
@@ -124,7 +194,8 @@ output_format: json
 - **cluster update** - Update all cluster nodes
 
 ### Configuration
-- **config** - Configure pvecli settings
+- **config** - Configure pvecli settings and manage multiple cluster environments
+- **config list** - List all configured environments
 - **console** - Interactive console access (VNC/SPICE)
 
 For detailed documentation on each command, see the [documentation](./documentation/) directory.

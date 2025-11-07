@@ -28,6 +28,7 @@ import (
 )
 
 var debugFlag bool
+var envFlag string
 
 var rootCmd = &cobra.Command{
 	Use:   "pvecli",
@@ -35,11 +36,15 @@ var rootCmd = &cobra.Command{
 	Long:  "pvecli - Simple CLI tool for managing Proxmox Cluster\n\nDeveloped by DevXo part of vByte Ltd",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		config.SetDebug(debugFlag)
+		if envFlag != "" {
+			config.SetEnvironment(envFlag)
+		}
 	},
 }
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&debugFlag, "debug", "d", false, "Enable debug output")
+	rootCmd.PersistentFlags().StringVarP(&envFlag, "env", "e", "", "Environment/cluster to use (prod, dev, staging, etc.)")
 }
 
 func Execute() {

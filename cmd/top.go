@@ -32,6 +32,7 @@ import (
 var (
 	topRefreshInterval int
 	topSortBy          string
+	previousStats      map[string]vmStats // Track previous stats for rate calculation
 )
 
 var topCmd = &cobra.Command{
@@ -45,6 +46,9 @@ var topCmd = &cobra.Command{
 		}
 
 		client := proxmox.NewClient(cfg)
+
+		// Initialize previous stats map
+		previousStats = make(map[string]vmStats)
 
 		// Clear screen and hide cursor
 		clearScreen()
@@ -95,6 +99,9 @@ var topCmd = &cobra.Command{
 				}
 			}
 
+			// Calculate rates based on previous stats
+			calculateRates(allStats)
+
 			// Sort stats
 			sortStats(allStats, topSortBy)
 
@@ -118,10 +125,14 @@ type vmStats struct {
 	CPUCores  int
 	MemUsage  uint64
 	MemTotal  uint64
-	DiskRead  uint64
-	DiskWrite uint64
-	NetIn     uint64
-	NetOut    uint64
+	DiskRead  uint64  // Total bytes read
+	DiskWrite uint64  // Total bytes written
+	NetIn     uint64  // Total bytes in
+	NetOut    uint64  // Total bytes out
+	DiskReadRate  uint64  // Bytes per second
+	DiskWriteRate uint64  // Bytes per second
+	NetInRate     uint64  // Bytes per second
+	NetOutRate    uint64  // Bytes per second
 }
 
 func getVMStats(client *proxmox.Client, node string, vmid int, vmType string) (vmStats, error) {
@@ -179,6 +190,42 @@ func getVMStats(client *proxmox.Client, node string, vmid int, vmType string) (v
 	return stats, nil
 }
 
+func calculateRates(stats []vmStats) {
+	for i := range stats {
+		// Create unique key for this VM/CT
+		key := fmt.Sprintf("%s-%d", stats[i].Node, stats[i].VMID)
+		
+		// Check if we have previous stats
+		if prev, exists := previousStats[key]; exists && stats[i].Status == "running" {
+			// Calculate rates (bytes per refresh interval, then convert to per second)
+			timeDelta := float64(topRefreshInterval)
+			
+			// Disk read rate
+			if stats[i].DiskRead >= prev.DiskRead {
+				stats[i].DiskReadRate = uint64(float64(stats[i].DiskRead-prev.DiskRead) / timeDelta)
+			}
+			
+			// Disk write rate
+			if stats[i].DiskWrite >= prev.DiskWrite {
+				stats[i].DiskWriteRate = uint64(float64(stats[i].DiskWrite-prev.DiskWrite) / timeDelta)
+			}
+			
+			// Network in rate
+			if stats[i].NetIn >= prev.NetIn {
+				stats[i].NetInRate = uint64(float64(stats[i].NetIn-prev.NetIn) / timeDelta)
+			}
+			
+			// Network out rate
+			if stats[i].NetOut >= prev.NetOut {
+				stats[i].NetOutRate = uint64(float64(stats[i].NetOut-prev.NetOut) / timeDelta)
+			}
+		}
+		
+		// Store current stats for next iteration
+		previousStats[key] = stats[i]
+	}
+}
+
 func sortStats(stats []vmStats, sortBy string) {
 	sort.Slice(stats, func(i, j int) bool {
 		switch sortBy {
@@ -197,13 +244,27 @@ func sortStats(stats []vmStats, sortBy string) {
 }
 
 func displayTop(stats []vmStats) {
-	// Header
-	fmt.Println("╔════════════════════════════════════════════════════════════════════════════════════════════════╗")
-	fmt.Printf("║  PVECLI TOP - Real-time VM/Container Monitor%58s║\n", "")
-	fmt.Printf("║  Refresh: %ds | Sort: %-10s | Time: %-20s%24s║\n", 
-		topRefreshInterval, topSortBy, time.Now().Format("2006-01-02 15:04:05"), "")
-	fmt.Println("╚════════════════════════════════════════════════════════════════════════════════════════════════╝")
-	fmt.Println()
+	// Header - fixed width 100 chars
+	borderTop := "╔══════════════════════════════════════════════════════════════════════════════════════════════════╗"
+	borderBottom := "╚══════════════════════════════════════════════════════════════════════════════════════════════════╝"
+	
+	fmt.Printf("\n%s\n", borderTop)
+	
+	// Title line
+	title := "PVECLI TOP - Real-time VM/Container Monitor"
+	totalWidth := 98 // 100 - 2 for borders
+	paddingLeft := (totalWidth - len(title)) / 2
+	paddingRight := totalWidth - len(title) - paddingLeft
+	fmt.Printf("║%s%s%s║\n", strings.Repeat(" ", paddingLeft), title, strings.Repeat(" ", paddingRight))
+	
+	// Info line
+	infoLine := fmt.Sprintf("Refresh: %ds | Sort: %s | Time: %s",
+		topRefreshInterval, topSortBy, time.Now().Format("2006-01-02 15:04:05"))
+	paddingLeft = (totalWidth - len(infoLine)) / 2
+	paddingRight = totalWidth - len(infoLine) - paddingLeft
+	fmt.Printf("║%s%s%s║\n", strings.Repeat(" ", paddingLeft), infoLine, strings.Repeat(" ", paddingRight))
+	
+	fmt.Printf("%s\n\n", borderBottom)
 
 	// Summary
 	totalVMs := 0
@@ -258,21 +319,8 @@ func displayTop(stats []vmStats) {
 	})
 
 	for _, s := range stats {
+		// Skip stopped VMs - show only running
 		if s.Status != "running" {
-			// Show stopped VMs with minimal info
-			table.Append([]string{
-				fmt.Sprintf("%d", s.VMID),
-				truncate(s.Name, 15),
-				s.Node,
-				s.Type,
-				s.Status,
-				"-",
-				"-",
-				"-",
-				"-",
-				"-",
-				"-",
-			})
 			continue
 		}
 
@@ -286,6 +334,18 @@ func displayTop(stats []vmStats) {
 		}
 		memBar := makeBar(memPercent, 100, 10)
 
+		// Format disk I/O rates
+		diskIO := "-"
+		if s.DiskReadRate > 0 || s.DiskWriteRate > 0 {
+			diskIO = fmt.Sprintf("R:%s/s W:%s/s", formatBytes(s.DiskReadRate), formatBytes(s.DiskWriteRate))
+		}
+		
+		// Format network I/O rates
+		netIO := "-"
+		if s.NetInRate > 0 || s.NetOutRate > 0 {
+			netIO = fmt.Sprintf("↓%s/s ↑%s/s", formatBytes(s.NetInRate), formatBytes(s.NetOutRate))
+		}
+
 		table.Append([]string{
 			fmt.Sprintf("%d", s.VMID),
 			truncate(s.Name, 15),
@@ -296,8 +356,8 @@ func displayTop(stats []vmStats) {
 			cpuBar,
 			fmt.Sprintf("%s/%s", formatBytes(s.MemUsage), formatBytes(s.MemTotal)),
 			memBar,
-			fmt.Sprintf("R:%s W:%s", formatBytes(s.DiskRead), formatBytes(s.DiskWrite)),
-			fmt.Sprintf("↓%s ↑%s", formatBytes(s.NetIn), formatBytes(s.NetOut)),
+			diskIO,
+			netIO,
 		})
 	}
 
