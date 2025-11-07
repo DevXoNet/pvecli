@@ -18,7 +18,7 @@ pvecli cluster resources
 
 ```
 ╔════════════════════════════════════════╗
-║         Proxmox Cluster Overview        ║
+║         Proxmox Cluster Overview       ║
 ╚════════════════════════════════════════╝
 
 Cluster: production-cluster
