@@ -198,7 +198,7 @@ pvecli -e staging cluster
 - **config list** - List all configured environments
 - **console** - Interactive console access (VNC/SPICE)
 
-For detailed documentation on each command, see the [documentation](./documentation/) directory.
+For detailed documentation on each command, see the [wiki](https://github.com/DevXoNet/pvecli/wiki).
 
 
 ## Disclaimer
