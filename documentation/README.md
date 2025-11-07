@@ -31,13 +31,41 @@ Technical documentation for all `pvecli` commands.
 
 ## Authentication
 
-Configure API token in `~/.pvecli/config.yaml`:
+### Single Cluster (Legacy)
+
+Configure API token in `~/.devxo/pve.yaml`:
 
 ```yaml
 api_url: "https://proxmox.example.com:8006/api2/json"
 token_id: "root@pam!cli"
 token_secret: "your-secret-here"
 ```
+
+### Multiple Clusters
+
+Configure multiple environments in `~/.devxo/pve.yaml`:
+
+```yaml
+environments:
+  prod:
+    api_url: "https://pve-prod.example.com:8006/api2/json"
+    token_id: "root@pam!prod-token"
+    token_secret: "prod-secret"
+  dev:
+    api_url: "https://pve-dev.example.com:8006/api2/json"
+    token_id: "root@pam!dev-token"
+    token_secret: "dev-secret"
+default_env: prod
+```
+
+Use `--env` or `-e` flag to select environment:
+
+```bash
+pvecli -e prod list
+pvecli -e dev start 100
+```
+
+See [config.md](config.md) for detailed multi-cluster setup.
 
 ## Output Formats
 

@@ -55,14 +55,28 @@ func GetOutputFormat() OutputFormat {
 // Global config instance
 var cfg *Config
 var debug bool
+var currentEnv string
 
+// ClusterConfig holds configuration for a single Proxmox cluster
+type ClusterConfig struct {
+	APIURL             string `yaml:"api_url"`
+	TokenID            string `yaml:"token_id"`
+	TokenSecret        string `yaml:"token_secret"`
+	InsecureSkipVerify bool   `yaml:"insecure_skip_verify"`
+}
+
+// Config holds the main configuration with multiple environments
 type Config struct {
-	APIURL             string       `yaml:"api_url"`
-	TokenID            string       `yaml:"token_id"`
-	TokenSecret        string       `yaml:"token_secret"`
-	InsecureSkipVerify bool         `yaml:"insecure_skip_verify"`
-	OutputFormat       OutputFormat `yaml:"output_format"`
-	Debug              bool         `yaml:"debug"`
+	Environments   map[string]*ClusterConfig `yaml:"environments"`
+	DefaultEnv     string                    `yaml:"default_env"`
+	OutputFormat   OutputFormat              `yaml:"output_format"`
+	Debug          bool                      `yaml:"debug"`
+	
+	// Legacy fields for backward compatibility
+	APIURL             string `yaml:"api_url,omitempty"`
+	TokenID            string `yaml:"token_id,omitempty"`
+	TokenSecret        string `yaml:"token_secret,omitempty"`
+	InsecureSkipVerify bool   `yaml:"insecure_skip_verify,omitempty"`
 }
 
 func LoadConfig() (*Config, error) {
@@ -87,6 +101,7 @@ func LoadConfig() (*Config, error) {
 	cfg = &Config{
 		OutputFormat: OutputFormatJSON,
 		Debug:        false,
+		Environments: make(map[string]*ClusterConfig),
 	}
 
 	// Override with values from config file
@@ -94,9 +109,32 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("parse yaml: %w", err)
 	}
 
-	// Validate required fields
-	if cfg.APIURL == "" || cfg.TokenID == "" || cfg.TokenSecret == "" {
-		return nil, fmt.Errorf("missing required fields in %s (api_url, token_id, token_secret)", path)
+	// Handle legacy config format (backward compatibility)
+	if cfg.APIURL != "" && cfg.TokenID != "" && cfg.TokenSecret != "" {
+		// Convert legacy format to new format
+		if len(cfg.Environments) == 0 {
+			cfg.Environments["default"] = &ClusterConfig{
+				APIURL:             cfg.APIURL,
+				TokenID:            cfg.TokenID,
+				TokenSecret:        cfg.TokenSecret,
+				InsecureSkipVerify: cfg.InsecureSkipVerify,
+			}
+			cfg.DefaultEnv = "default"
+		}
+	}
+
+	// Validate that we have at least one environment
+	if len(cfg.Environments) == 0 {
+		return nil, fmt.Errorf("no environments configured in %s", path)
+	}
+
+	// Set default environment if not specified
+	if cfg.DefaultEnv == "" {
+		// Use the first environment as default
+		for env := range cfg.Environments {
+			cfg.DefaultEnv = env
+			break
+		}
 	}
 
 	return cfg, nil
@@ -145,4 +183,48 @@ func SaveConfig(cfg *Config) error {
 	}
 
 	return nil
+}
+
+// SetEnvironment sets the current environment to use
+func SetEnvironment(env string) {
+	currentEnv = env
+}
+
+// GetCurrentEnvironment returns the current environment name
+func GetCurrentEnvironment() string {
+	if currentEnv != "" {
+		return currentEnv
+	}
+	if cfg != nil && cfg.DefaultEnv != "" {
+		return cfg.DefaultEnv
+	}
+	return "default"
+}
+
+// GetCurrentCluster returns the ClusterConfig for the current environment
+func GetCurrentCluster() (*ClusterConfig, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("config not loaded")
+	}
+	
+	env := GetCurrentEnvironment()
+	cluster, ok := cfg.Environments[env]
+	if !ok {
+		return nil, fmt.Errorf("environment '%s' not found in config", env)
+	}
+	
+	return cluster, nil
+}
+
+// GetEnvironments returns all configured environment names
+func GetEnvironments() []string {
+	if cfg == nil {
+		return nil
+	}
+	
+	envs := make([]string, 0, len(cfg.Environments))
+	for env := range cfg.Environments {
+		envs = append(envs, env)
+	}
+	return envs
 }

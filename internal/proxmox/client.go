@@ -60,14 +60,30 @@ func (c *Client) Migrate(node string, vmid int, vmType string, target string, on
 }
 
 func NewClient(cfg *config.Config) *Client {
+	// Get current cluster configuration
+	cluster, err := config.GetCurrentCluster()
+	if err != nil {
+		// Fallback to legacy config format for backward compatibility
+		if cfg.APIURL != "" && cfg.TokenID != "" && cfg.TokenSecret != "" {
+			cluster = &config.ClusterConfig{
+				APIURL:             cfg.APIURL,
+				TokenID:            cfg.TokenID,
+				TokenSecret:        cfg.TokenSecret,
+				InsecureSkipVerify: cfg.InsecureSkipVerify,
+			}
+		} else {
+			panic(fmt.Sprintf("failed to get cluster config: %v", err))
+		}
+	}
+	
 	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify},
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: cluster.InsecureSkipVerify},
 	}
 	return &Client{
-		BaseURL:  cfg.APIURL,
-		TokenID:  cfg.TokenID,
-		Secret:   cfg.TokenSecret,
-		Insecure: cfg.InsecureSkipVerify,
+		BaseURL:  cluster.APIURL,
+		TokenID:  cluster.TokenID,
+		Secret:   cluster.TokenSecret,
+		Insecure: cluster.InsecureSkipVerify,
 		Debug:    config.Debug(),
 		client:   &http.Client{Timeout: 20 * time.Second, Transport: tr},
 	}
