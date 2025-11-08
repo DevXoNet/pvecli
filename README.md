@@ -191,12 +191,10 @@ pvecli -e staging cluster
 - **top** - Real-time resource monitoring with graphs
 - **task** - Monitor and manage Proxmox tasks
 - **cluster** - View cluster information and health
-- **cluster update** - Update all cluster nodes
+- **console** - Interactive console access (VNC/SPICE)
 
 ### Configuration
 - **config** - Configure pvecli settings and manage multiple cluster environments
-- **config list** - List all configured environments
-- **console** - Interactive console access (VNC/SPICE)
 
 For detailed documentation on each command, see the [wiki](https://github.com/DevXoNet/pvecli/wiki).
 
