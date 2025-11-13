@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// TODO: Console provides a Proxmox Serial/VNC console connection (termproxy)
+
 package console
 
 import (
