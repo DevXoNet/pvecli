@@ -342,7 +342,8 @@ The command will:
 		if outputFormat == config.OutputFormatText {
 			fmt.Println("\n═══════════════════════════════════════")
 			fmt.Println("Applying updates...")
-			fmt.Println("═══════════════════════════════════════\n")
+			fmt.Println("═══════════════════════════════════════")
+		fmt.Println()
 		}
 
 		successCount := 0
