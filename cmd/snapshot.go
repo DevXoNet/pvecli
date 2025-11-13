@@ -17,6 +17,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"time"
 
 	"pvecli/config"
 	"pvecli/internal/proxmox"
@@ -26,20 +28,22 @@ import (
 )
 
 var (
-	snapshotPBS bool
-	snapshotNFS bool
+	snapshotName        string
+	snapshotDescription string
+	snapshotNoRAM       bool
 )
 
 var snapshotCmd = &cobra.Command{
 	Use:   "snapshot <vmid>",
-	Short: "Create a backup snapshot to PBS or NFS storage",
-	Long: `Create a backup snapshot of a VM or container to Proxmox Backup Server or NFS storage.
+	Short: "Create a snapshot of a VM or container",
+	Long: `Create a snapshot of a VM or container.
 
-The command automatically detects the first available PBS or NFS storage on the node.
+A snapshot captures the current state of the VM/container and can be used to restore it later.
 
 Example:
-  pvecli snapshot 230 --pbs
-  pvecli snapshot 202 --nfs`,
+  pvecli snapshot 230
+  pvecli snapshot 202 --name my-snapshot --description "Before upgrade"
+  pvecli snapshot 114 --name my-snapshot --description "Before upgrade" --no-ram`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vmid := args[0]
@@ -51,80 +55,61 @@ Example:
 		}
 		client := proxmox.NewClient(cfg)
 
-		// Validate that exactly one storage type flag is specified
-		if !snapshotPBS && !snapshotNFS {
-			return fmt.Errorf("either --pbs or --nfs flag is required")
-		}
-		if snapshotPBS && snapshotNFS {
-			return fmt.Errorf("cannot use both --pbs and --nfs flags together")
-		}
-
 		// Find which node hosts this VM/container
 		node, instanceType, err := client.FindNodeByVMID(vmid)
 		if err != nil {
 			return err
 		}
 
-		// Get list of all storages on the node
-		storages, err := client.GetStorages(node)
+		// Generate snapshot name if not provided
+		snapName := snapshotName
+		if snapName == "" {
+			snapName = fmt.Sprintf("snap_%d", time.Now().Unix())
+		}
+
+		// Create snapshot (includeRAM is true by default, unless --no-ram is specified)
+		includeRAM := !snapshotNoRAM
+		taskID, err := client.CreateSnapshot(node, vmid, instanceType, snapName, snapshotDescription, includeRAM)
+
+		// Get output format before handling error
+		outputFormat := config.GetOutputFormat()
+
 		if err != nil {
-			return fmt.Errorf("failed to get storages: %w", err)
-		}
-
-		// Determine which storage type to search for
-		var targetStorage string
-		var targetType string
-
-		if snapshotPBS {
-			targetType = "pbs"
-		} else if snapshotNFS {
-			targetType = "nfs"
-		}
-
-		// Find first storage matching the requested type
-		for _, storage := range storages {
-			if storageMap, ok := storage.(map[string]interface{}); ok {
-				storageName := ""
-				storageType := ""
-				if storageMap["storage"] != nil {
-					storageName = storageMap["storage"].(string)
+			// Format error according to output format
+			switch outputFormat {
+			case config.OutputFormatJSON:
+				errorOutput := map[string]interface{}{
+					"error":  err.Error(),
+					"vmid":   vmid,
+					"status": "failed",
 				}
-				if storageMap["type"] != nil {
-					storageType = storageMap["type"].(string)
+				b, _ := json.MarshalIndent(errorOutput, "", "  ")
+				fmt.Println(string(b))
+			case config.OutputFormatYAML:
+				errorOutput := map[string]interface{}{
+					"error":  err.Error(),
+					"vmid":   vmid,
+					"status": "failed",
 				}
-
-				// Use first matching storage
-				if storageType == targetType {
-					targetStorage = storageName
-					break
-				}
+				b, _ := yaml.Marshal(errorOutput)
+				fmt.Print(string(b))
+			case config.OutputFormatText:
+				fmt.Printf("Error: %s\n", err.Error())
 			}
-		}
-
-		// Error if no matching storage found
-		if targetStorage == "" {
-			return fmt.Errorf("no %s storage found on node %s", targetType, node)
-		}
-
-		// Create backup task
-		taskID, err := client.CreateBackup(node, vmid, instanceType, targetStorage)
-		if err != nil {
-			return fmt.Errorf("failed to create backup: %w", err)
+			os.Exit(1)
 		}
 
 		// Output based on configured format
-		outputFormat := config.GetOutputFormat()
-
 		switch outputFormat {
 		case config.OutputFormatJSON:
 			output := map[string]interface{}{
-				"vmid":         vmid,
-				"node":         node,
-				"type":         instanceType,
-				"storage":      targetStorage,
-				"storage_type": targetType,
-				"task_id":      taskID,
-				"status":       "started",
+				"vmid":        vmid,
+				"node":        node,
+				"type":        instanceType,
+				"snapshot":    snapName,
+				"description": snapshotDescription,
+				"task_id":     taskID,
+				"status":      "started",
 			}
 			b, err := json.MarshalIndent(output, "", "  ")
 			if err != nil {
@@ -134,13 +119,13 @@ Example:
 
 		case config.OutputFormatYAML:
 			output := map[string]interface{}{
-				"vmid":         vmid,
-				"node":         node,
-				"type":         instanceType,
-				"storage":      targetStorage,
-				"storage_type": targetType,
-				"task_id":      taskID,
-				"status":       "started",
+				"vmid":        vmid,
+				"node":        node,
+				"type":        instanceType,
+				"snapshot":    snapName,
+				"description": snapshotDescription,
+				"task_id":     taskID,
+				"status":      "started",
 			}
 			b, err := yaml.Marshal(output)
 			if err != nil {
@@ -149,8 +134,136 @@ Example:
 			fmt.Print(string(b))
 
 		case config.OutputFormatText:
-			fmt.Printf("Backup task started: %s\n", taskID)
-			fmt.Println("Use 'pvecli task <task_id>' to monitor progress")
+			fmt.Printf("Snapshot '%s' created successfully\n", snapName)
+			if taskID != "" {
+				fmt.Printf("Task ID: %s\n", taskID)
+				fmt.Println("Use 'pvecli task <task_id>' to monitor progress")
+			}
+		}
+
+		return nil
+	},
+}
+
+var snapshotDelCmd = &cobra.Command{
+	Use:   "del <vmid>",
+	Short: "Delete a snapshot of a VM or container",
+	Long: `Delete a snapshot of a VM or container by name.
+
+Example:
+  pvecli snapshot del 230 --name my-snapshot
+  pvecli snapshot del 114 --name my-snapshot`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		vmid := args[0]
+
+		// Require snapshot name
+		if snapshotName == "" {
+			outputFormat := config.GetOutputFormat()
+			switch outputFormat {
+			case config.OutputFormatJSON:
+				errorOutput := map[string]interface{}{
+					"error":  "--name flag is required",
+					"vmid":   vmid,
+					"status": "failed",
+				}
+				b, _ := json.MarshalIndent(errorOutput, "", "  ")
+				fmt.Println(string(b))
+			case config.OutputFormatYAML:
+				errorOutput := map[string]interface{}{
+					"error":  "--name flag is required",
+					"vmid":   vmid,
+					"status": "failed",
+				}
+				b, _ := yaml.Marshal(errorOutput)
+				fmt.Print(string(b))
+			case config.OutputFormatText:
+				fmt.Println("Error: --name flag is required")
+			}
+			os.Exit(1)
+		}
+
+		// Load configuration
+		cfg, err := config.LoadConfig()
+		if err != nil {
+			return fmt.Errorf("config error: %w", err)
+		}
+		client := proxmox.NewClient(cfg)
+
+		// Find which node hosts this VM/container
+		node, instanceType, err := client.FindNodeByVMID(vmid)
+		if err != nil {
+			return err
+		}
+
+		// Delete snapshot
+		taskID, err := client.DeleteSnapshot(node, vmid, instanceType, snapshotName)
+
+		// Get output format before handling error
+		outputFormat := config.GetOutputFormat()
+
+		if err != nil {
+			// Format error according to output format
+			switch outputFormat {
+			case config.OutputFormatJSON:
+				errorOutput := map[string]interface{}{
+					"error":  err.Error(),
+					"vmid":   vmid,
+					"status": "failed",
+				}
+				b, _ := json.MarshalIndent(errorOutput, "", "  ")
+				fmt.Println(string(b))
+			case config.OutputFormatYAML:
+				errorOutput := map[string]interface{}{
+					"error":  err.Error(),
+					"vmid":   vmid,
+					"status": "failed",
+				}
+				b, _ := yaml.Marshal(errorOutput)
+				fmt.Print(string(b))
+			case config.OutputFormatText:
+				fmt.Printf("Error: %s\n", err.Error())
+			}
+			os.Exit(1)
+		}
+
+		// Output based on configured format
+		switch outputFormat {
+		case config.OutputFormatJSON:
+			output := map[string]interface{}{
+				"vmid":     vmid,
+				"node":     node,
+				"type":     instanceType,
+				"snapshot": snapshotName,
+				"task_id":  taskID,
+				"status":   "deleted",
+			}
+			b, err := json.MarshalIndent(output, "", "  ")
+			if err != nil {
+				return fmt.Errorf("marshal json: %w", err)
+			}
+			fmt.Println(string(b))
+
+		case config.OutputFormatYAML:
+			output := map[string]interface{}{
+				"vmid":     vmid,
+				"node":     node,
+				"type":     instanceType,
+				"snapshot": snapshotName,
+				"task_id":  taskID,
+				"status":   "deleted",
+			}
+			b, err := yaml.Marshal(output)
+			if err != nil {
+				return fmt.Errorf("marshal yaml: %w", err)
+			}
+			fmt.Print(string(b))
+
+		case config.OutputFormatText:
+			fmt.Printf("Snapshot '%s' deleted successfully\n", snapshotName)
+			if taskID != "" {
+				fmt.Printf("Task ID: %s\n", taskID)
+			}
 		}
 
 		return nil
@@ -158,7 +271,12 @@ Example:
 }
 
 func init() {
-	snapshotCmd.Flags().BoolVar(&snapshotPBS, "pbs", false, "Use PBS (Proxmox Backup Server) storage")
-	snapshotCmd.Flags().BoolVar(&snapshotNFS, "nfs", false, "Use NFS storage")
+	snapshotCmd.Flags().StringVar(&snapshotName, "name", "", "Snapshot name (auto-generated if not specified)")
+	snapshotCmd.Flags().StringVar(&snapshotDescription, "description", "", "Snapshot description")
+	snapshotCmd.Flags().BoolVar(&snapshotNoRAM, "no-ram", false, "Exclude RAM/VM state from snapshot (RAM included by default for QEMU VMs)")
+
+	snapshotDelCmd.Flags().StringVar(&snapshotName, "name", "", "Snapshot name to delete (required)")
+	snapshotCmd.AddCommand(snapshotDelCmd)
+
 	rootCmd.AddCommand(snapshotCmd)
 }

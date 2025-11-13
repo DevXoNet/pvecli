@@ -788,6 +788,126 @@ func (c *Client) GetStorages(node string) ([]interface{}, error) {
 	return out.Data, nil
 }
 
+// GetSnapshots returns list of snapshots for a VM or container
+func (c *Client) GetSnapshots(node, vmid, instanceType string) ([]map[string]interface{}, error) {
+	// Map instance type to API endpoint type
+	var apiType string
+	switch instanceType {
+	case "vm":
+		apiType = "qemu"
+	case "ct":
+		apiType = "lxc"
+	case "qemu", "lxc":
+		apiType = instanceType
+	default:
+		return nil, fmt.Errorf("unsupported instance type: %s", instanceType)
+	}
+
+	type wrap struct {
+		Data []map[string]interface{} `json:"data"`
+	}
+	var out wrap
+
+	endpoint := fmt.Sprintf("/nodes/%s/%s/%s/snapshot", node, apiType, vmid)
+	err := c.doRequest("GET", endpoint, &out)
+	if err != nil {
+		return nil, err
+	}
+
+	return out.Data, nil
+}
+
+// DeleteSnapshot deletes a snapshot of a VM or container
+func (c *Client) DeleteSnapshot(node, vmid, instanceType, snapname string) (string, error) {
+	// Map instance type to API endpoint type
+	var apiType string
+	switch instanceType {
+	case "vm":
+		apiType = "qemu"
+	case "ct":
+		apiType = "lxc"
+	case "qemu", "lxc":
+		apiType = instanceType
+	default:
+		return "", fmt.Errorf("unsupported instance type: %s", instanceType)
+	}
+
+	type wrap struct {
+		Data string `json:"data"`
+	}
+	var out wrap
+
+	endpoint := fmt.Sprintf("/nodes/%s/%s/%s/snapshot/%s", node, apiType, vmid, snapname)
+	err := c.doRequest("DELETE", endpoint, &out)
+	if err != nil {
+		return "", err
+	}
+
+	// Return the task ID (UPID)
+	return out.Data, nil
+}
+
+// CreateSnapshot creates a snapshot of a VM or container
+func (c *Client) CreateSnapshot(node, vmid, instanceType, snapname, description string, includeRAM bool) (string, error) {
+	// Check if snapshot name already exists
+	snapshots, err := c.GetSnapshots(node, vmid, instanceType)
+	if err != nil {
+		return "", fmt.Errorf("failed to check existing snapshots: %w", err)
+	}
+
+	for _, snap := range snapshots {
+		if name, ok := snap["name"].(string); ok && name == snapname {
+			return "", fmt.Errorf("snapshot name '%s' already exists", snapname)
+		}
+	}
+
+	// Build snapshot parameters
+	data := map[string]string{
+		"snapname": snapname,
+	}
+	
+	if description != "" {
+		data["description"] = description
+	}
+	
+	// Include RAM state (vmstate) - ONLY for QEMU VMs, NOT for LXC containers
+	// LXC containers don't support vmstate parameter
+	if includeRAM && (instanceType == "vm" || instanceType == "qemu") {
+		data["vmstate"] = "1"
+	}
+
+	type wrap struct {
+		Data string `json:"data"`
+	}
+	var out wrap
+
+	// Map instance type to API endpoint type
+	// FindNodeByVMID returns "vm" or "ct", but API expects "qemu" or "lxc"
+	var apiType string
+	switch instanceType {
+	case "vm":
+		apiType = "qemu"
+	case "ct":
+		apiType = "lxc"
+	case "qemu", "lxc":
+		apiType = instanceType
+	default:
+		return "", fmt.Errorf("unsupported instance type: %s", instanceType)
+	}
+
+	// Use appropriate endpoint based on instance type
+	endpoint := fmt.Sprintf("/nodes/%s/%s/%s/snapshot", node, apiType, vmid)
+	
+	// Use doRequestWithData for POST with form data
+	err = c.doRequestWithData("POST", endpoint, data, &out)
+	if err != nil {
+		return "", err
+	}
+
+	// Return the task ID (UPID)
+	return out.Data, nil
+}
+
 // CreateBackup creates a backup/snapshot to PBS storage
 func (c *Client) CreateBackup(node, vmid, instanceType, storage string) (string, error) {
 	// Build backup parameters with notes template
