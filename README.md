@@ -115,8 +115,6 @@ pvecli -e dev start 100
 pvecli -e staging cluster
 ```
 
-See [Multi-Cluster Guide](./MULTI_CLUSTER.md) for detailed setup instructions.
-
 ### 4. Configure Output Format
 
 pvecli supports multiple output formats that can be configured in `~/.devxo/pve.yaml`:
