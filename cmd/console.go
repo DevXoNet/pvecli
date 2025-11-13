@@ -14,42 +14,39 @@ package cmd
 
 import (
 	"fmt"
-	"net/url"
 	"os"
-	"time"
+	"os/exec"
 
 	"github.com/spf13/cobra"
 
 	"pvecli/config"
-	"pvecli/internal/console"
 	"pvecli/internal/proxmox"
+	"pvecli/internal/ssh"
 )
 
 var (
-	consoleNodeOverride string
-	consoleSourceNode   string
-	consoleTargetNode   string
+	consoleSSHUser    string
+	consoleSSHKeyPath string
+	consoleSSHPort    int
 )
 
 var consoleCmd = &cobra.Command{
 	Use:   "console <vmid>",
-	Short: "Open an interactive console to a VM or container",
-	Long: `Open an interactive TTY console to a VM or container using Proxmox VNC WebSocket.
+	Short: "Open an SSH console to a VM or container's host node",
+	Long: `Open an interactive SSH console to the Proxmox node hosting the specified VM or container.
 
-This provides SSM-like access without requiring SSH or installing any agent inside the VM/container.
-
-The console connection is established through the Proxmox API using termproxy and vncwebsocket.
+This connects you to the host node via SSH, not directly to the VM/container.
+To access the VM/container itself, use 'qm terminal <vmid>' or 'pct console <vmid>' after connecting.
 
 Features:
-- No SSH required
-- No agent installation needed
-- Automatic terminal resizing
-- Works with both VMs and LXC containers
+- Automatic node detection
+- Uses SSH keys for authentication
+- Configurable SSH user, key path, and port
 
 Example:
 pvecli console 105
 
-Press Ctrl+C or close the terminal to exit the console session.`,
+Press Ctrl+D or type 'exit' to close the SSH session.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vmid := args[0]
@@ -60,113 +57,112 @@ Press Ctrl+C or close the terminal to exit the console session.`,
 		}
 		client := proxmox.NewClient(cfg)
 
-		// Find the node where the VM/container is located
-		var node, instanceType string
+		// Get cluster config for SSH settings
+		cluster, err := config.GetCurrentCluster()
+		if err != nil {
+			return err
+		}
 
-		if consoleSourceNode != "" {
-			// If source node is specified, search only on that node
-			fmt.Printf("Locating instance %s on node %s...\n", vmid, consoleSourceNode)
-			var err error
-			instanceType, err = client.FindVMIDOnNode(consoleSourceNode, vmid)
-			if err != nil {
-				return err
-			}
-			node = consoleSourceNode
-			fmt.Printf("Found %s %s on node %s\n", instanceType, vmid, node)
+		// Get SSH settings from config or flags
+		sshUser := consoleSSHUser
+		if sshUser == "" && cluster.SSHUser != "" {
+			sshUser = cluster.SSHUser
+		}
+		if sshUser == "" {
+			sshUser = "root"
+		}
+
+		sshKeyPath := consoleSSHKeyPath
+		if sshKeyPath == "" && cluster.SSHKeyPath != "" {
+			sshKeyPath = cluster.SSHKeyPath
+		}
+		if sshKeyPath == "" {
+			sshKeyPath = ssh.GetDefaultSSHKeyPath()
+		}
+
+		sshPort := consoleSSHPort
+		if sshPort == 0 && cluster.SSHPort != 0 {
+			sshPort = cluster.SSHPort
+		}
+		if sshPort == 0 {
+			sshPort = 22
+		}
+
+		// Find node and instance type
+		fmt.Printf("Locating instance %s...\n", vmid)
+		node, instanceType, err := client.FindNodeByVMID(vmid)
+		if err != nil {
+			return err
+		}
+
+		// Try to get VM/container IP
+		var vmIP string
+		var ipErr error
+		
+		if instanceType == "vm" {
+			fmt.Printf("Getting IP from QEMU Guest Agent...\n")
+			vmIP, ipErr = client.GetVMIPFromAgent(node, vmid)
 		} else {
-			// Otherwise, search all nodes
-			fmt.Printf("Locating instance %s...\n", vmid)
-			var err error
-			node, instanceType, err = client.FindNodeByVMID(vmid)
+			fmt.Printf("Getting IP from container config...\n")
+			vmIP, ipErr = client.GetContainerIPFromConfig(node, vmid)
+		}
+
+		if ipErr != nil || vmIP == "" {
+			// Fallback to node SSH
+			fmt.Printf("Could not get %s IP: %v\n", instanceType, ipErr)
+			fmt.Printf("\nFalling back to node SSH connection...\n")
+			fmt.Printf("After connecting, use:\n")
+			if instanceType == "vm" {
+				fmt.Printf("  qm terminal %s    (for VM console)\n", vmid)
+			} else {
+				fmt.Printf("  pct console %s    (for container console)\n", vmid)
+			}
+			fmt.Println()
+
+			// Get node IP
+			nodes, err := client.GetNodes()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to get nodes: %w", err)
 			}
-			fmt.Printf("Found %s %s on node %s\n", instanceType, vmid, node)
-		}
 
-		// Determine source node (for API call/ticket creation)
-		sourceNode := node
-		if consoleSourceNode != "" && consoleSourceNode != node {
-			sourceNode = consoleSourceNode
-			fmt.Printf("Using different source node for ticket creation: %s\n", sourceNode)
-		}
-
-		// Determine target node (for WebSocket connection)
-		targetNode := node
-		if consoleTargetNode != "" && consoleTargetNode != node {
-			targetNode = consoleTargetNode
-			fmt.Printf("Using different target node for WebSocket: %s\n", targetNode)
-		}
-
-		// Create terminal proxy session
-		fmt.Println("Creating console session...")
-		startTime := time.Now()
-		// Use the source node for the termproxy request (ticket creation)
-		proxyResp, err := client.CreateTermProxy(sourceNode, vmid, instanceType)
-		if err != nil {
-			return fmt.Errorf("create terminal proxy: %w", err)
-		}
-
-		if config.Debug() {
-			fmt.Printf("DEBUG: TermProxy response: UPID=%s, Port=%d, User=%s, Ticket=%s\n", proxyResp.UPID, proxyResp.Port, proxyResp.User, proxyResp.Ticket)
-			fmt.Printf("DEBUG: Time after termproxy: %v\n", time.Since(startTime))
-		}
-
-		// Determine WebSocket connection URL
-		nodeURL := cfg.APIURL
-		if consoleNodeOverride != "" {
-			// Use override host if specified
-			u, _ := url.Parse(cfg.APIURL)
-			u.Host = fmt.Sprintf("%s:8006", consoleNodeOverride)
-			nodeURL = u.String()
-			if config.Debug() {
-				fmt.Printf("DEBUG: Using --node override: %s\n", consoleNodeOverride)
+			var nodeIP string
+			for _, n := range nodes {
+				if n.Node == node {
+					nodeIP = n.IP
+					break
+				}
 			}
-		} else if config.Debug() {
-			u, _ := url.Parse(cfg.APIURL)
-			if u.Host != "" {
-				fmt.Printf("DEBUG: Using API URL host: %s\n", u.Host)
+
+			if nodeIP == "" {
+				return fmt.Errorf("could not find IP for node %s", node)
 			}
+
+			vmIP = nodeIP
+			fmt.Printf("Connecting to node %s (%s) as %s@%s:%d...\n", node, nodeIP, sshUser, nodeIP, sshPort)
+		} else {
+			fmt.Printf("Found %s %s with IP %s\n", instanceType, vmid, vmIP)
+			fmt.Printf("Connecting to %s@%s:%d...\n", sshUser, vmIP, sshPort)
 		}
 
-		// Connect to VNC WebSocket
-		fmt.Println("Connecting to console...")
-		if config.Debug() {
-			fmt.Printf("DEBUG: Time before WebSocket dial: %v\n", time.Since(startTime))
-		}
-		vnc, err := console.Connect(
-			nodeURL,
-			targetNode,
-			vmid,
-			instanceType,
-			proxyResp.Port,
-			proxyResp.Ticket,
-			cfg.InsecureSkipVerify,
-			config.Debug(),
+		// Use native SSH client for better terminal handling
+		sshCmd := exec.Command("ssh",
+			"-i", sshKeyPath,
+			"-p", fmt.Sprintf("%d", sshPort),
+			"-o", "StrictHostKeyChecking=no",
+			"-o", "UserKnownHostsFile=/dev/null",
+			fmt.Sprintf("%s@%s", sshUser, vmIP),
 		)
-		if err != nil {
-			return fmt.Errorf("connect to console: %w", err)
-		}
-		defer vnc.Close()
+		sshCmd.Stdin = os.Stdin
+		sshCmd.Stdout = os.Stdout
+		sshCmd.Stderr = os.Stderr
 
-		fmt.Println("Connected! Press Ctrl+C to exit.")
-		fmt.Println("---")
-		// Start interactive console session
-		if err := vnc.Start(); err != nil {
-			// Don't print error if it's just a normal close
-			if err.Error() != "EOF" && err.Error() != "websocket: close 1000 (normal)" {
-				fmt.Fprintf(os.Stderr, "\nConsole error: %v\n", err)
-			}
-		}
-		fmt.Println("\n---")
-		fmt.Println("Console session closed.")
-		return nil
+		return sshCmd.Run()
 	},
 }
 
 func init() {
-	consoleCmd.Flags().StringVar(&consoleNodeOverride, "node", "", "Override node to connect to (useful for testing different nodes)")
-	consoleCmd.Flags().StringVar(&consoleSourceNode, "source", "", "Source node to create the ticket from (where the API call is made)")
-	consoleCmd.Flags().StringVar(&consoleTargetNode, "target", "", "Target node to connect the WebSocket to (where the console connection is established)")
+	consoleCmd.Flags().StringVar(&consoleSSHUser, "ssh-user", "", "SSH user (default: root or from config)")
+	consoleCmd.Flags().StringVar(&consoleSSHKeyPath, "ssh-key", "", "SSH private key path (default: ~/.ssh/id_rsa or from config)")
+	consoleCmd.Flags().IntVar(&consoleSSHPort, "ssh-port", 0, "SSH port (default: 22 or from config)")
 	rootCmd.AddCommand(consoleCmd)
 }
