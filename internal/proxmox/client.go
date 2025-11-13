@@ -819,6 +819,25 @@ func (c *Client) GetSnapshots(node, vmid, instanceType string) ([]map[string]int
 
 // DeleteSnapshot deletes a snapshot of a VM or container
 func (c *Client) DeleteSnapshot(node, vmid, instanceType, snapname string) (string, error) {
+	// Check if snapshot exists
+	snapshots, err := c.GetSnapshots(node, vmid, instanceType)
+	if err != nil {
+		return "", fmt.Errorf("failed to check existing snapshots: %w", err)
+	}
+
+	// Verify snapshot exists
+	snapshotExists := false
+	for _, snap := range snapshots {
+		if name, ok := snap["name"].(string); ok && name == snapname {
+			snapshotExists = true
+			break
+		}
+	}
+
+	if !snapshotExists {
+		return "", fmt.Errorf("snapshot '%s' not found", snapname)
+	}
+
 	// Map instance type to API endpoint type
 	var apiType string
 	switch instanceType {
@@ -838,7 +857,7 @@ func (c *Client) DeleteSnapshot(node, vmid, instanceType, snapname string) (stri
 	var out wrap
 
 	endpoint := fmt.Sprintf("/nodes/%s/%s/%s/snapshot/%s", node, apiType, vmid, snapname)
-	err := c.doRequest("DELETE", endpoint, &out)
+	err = c.doRequest("DELETE", endpoint, &out)
 	if err != nil {
 		return "", err
 	}
