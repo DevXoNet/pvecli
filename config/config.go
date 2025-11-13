@@ -63,6 +63,9 @@ type ClusterConfig struct {
 	TokenID            string `yaml:"token_id"`
 	TokenSecret        string `yaml:"token_secret"`
 	InsecureSkipVerify bool   `yaml:"insecure_skip_verify"`
+	SSHUser            string `yaml:"ssh_user,omitempty"`
+	SSHKeyPath         string `yaml:"ssh_key_path,omitempty"`
+	SSHPort            int    `yaml:"ssh_port,omitempty"`
 }
 
 // Config holds the main configuration with multiple environments
@@ -168,6 +171,12 @@ func SaveConfig(cfg *Config) error {
 	if err != nil {
 		return err
 	}
+
+	// Clear legacy fields before saving
+	cfg.APIURL = ""
+	cfg.TokenID = ""
+	cfg.TokenSecret = ""
+	cfg.InsecureSkipVerify = false
 
 	// Save the configuration
 	f, err := os.Create(path)

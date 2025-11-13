@@ -198,11 +198,16 @@ func (e *FriendlyError) Error() string {
 }
 
 type Node struct {
-	Node string `json:"node"`
-	IP   string `json:"ip"`
+	Node   string `json:"node"`
+	IP     string `json:"ip"`
+	Status string `json:"status"`
 }
 type nodeList struct {
 	Data []Node `json:"data"`
+}
+
+type nodeStatus struct {
+	IP string `json:"ip"`
 }
 
 type Instance struct {
@@ -260,7 +265,41 @@ type instanceList struct {
 func (c *Client) GetNodes() ([]Node, error) {
 	var out nodeList
 	err := c.doRequest("GET", "/nodes", &out)
-	return out.Data, err
+	if err != nil {
+		return nil, err
+	}
+	
+	// Get IP addresses from cluster status
+	clusterStatus, err := c.GetClusterStatus()
+	if err == nil && clusterStatus != nil {
+		nodeIPMap := make(map[string]string)
+		for _, item := range clusterStatus {
+			if itemMap, ok := item.(map[string]interface{}); ok {
+				if itemMap["type"] == "node" {
+					nodeName := ""
+					nodeIP := ""
+					if itemMap["name"] != nil {
+						nodeName = itemMap["name"].(string)
+					}
+					if itemMap["ip"] != nil {
+						nodeIP = itemMap["ip"].(string)
+					}
+					if nodeName != "" && nodeIP != "" {
+						nodeIPMap[nodeName] = nodeIP
+					}
+				}
+			}
+		}
+		
+		// Assign IPs to nodes
+		for i := range out.Data {
+			if ip, ok := nodeIPMap[out.Data[i].Node]; ok {
+				out.Data[i].IP = ip
+			}
+		}
+	}
+	
+	return out.Data, nil
 }
 
 // GetNodeIP returns the IP address of a specific node
@@ -1077,6 +1116,84 @@ func (c *Client) ListBackups(node, storage, vmid string) ([]map[string]interface
 	}
 
 	return backups, nil
+}
+
+// GetVMAgentNetworkInterfaces gets network interfaces from QEMU Guest Agent
+func (c *Client) GetVMAgentNetworkInterfaces(node, vmid string) ([]map[string]interface{}, error) {
+	type wrap struct {
+		Data struct {
+			Result []map[string]interface{} `json:"result"`
+		} `json:"data"`
+	}
+	var out wrap
+
+	endpoint := fmt.Sprintf("/nodes/%s/qemu/%s/agent/network-get-interfaces", node, vmid)
+	err := c.doRequest("GET", endpoint, &out)
+	if err != nil {
+		return nil, err
+	}
+
+	return out.Data.Result, nil
+}
+
+// GetVMIPFromAgent gets the first non-loopback IPv4 address from QEMU Guest Agent
+func (c *Client) GetVMIPFromAgent(node, vmid string) (string, error) {
+	interfaces, err := c.GetVMAgentNetworkInterfaces(node, vmid)
+	if err != nil {
+		return "", err
+	}
+
+	for _, iface := range interfaces {
+		if addrs, ok := iface["ip-addresses"].([]interface{}); ok {
+			for _, addr := range addrs {
+				if addrMap, ok := addr.(map[string]interface{}); ok {
+					if ipType, ok := addrMap["ip-address-type"].(string); ok && ipType == "ipv4" {
+						if ip, ok := addrMap["ip-address"].(string); ok {
+							// Skip loopback
+							if !strings.HasPrefix(ip, "127.") {
+								return ip, nil
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no IPv4 address found")
+}
+
+// GetContainerIPFromConfig gets IP address from container network configuration
+func (c *Client) GetContainerIPFromConfig(node, vmid string) (string, error) {
+	type wrap struct {
+		Data map[string]interface{} `json:"data"`
+	}
+	var out wrap
+
+	endpoint := fmt.Sprintf("/nodes/%s/lxc/%s/config", node, vmid)
+	err := c.doRequest("GET", endpoint, &out)
+	if err != nil {
+		return "", err
+	}
+
+	// Try to get IP from net0
+	if net0, ok := out.Data["net0"].(string); ok {
+		// Format: name=eth0,bridge=vmbr0,ip=192.168.1.100/24,gw=192.168.1.1
+		parts := strings.Split(net0, ",")
+		for _, part := range parts {
+			if strings.HasPrefix(part, "ip=") {
+				ipCidr := strings.TrimPrefix(part, "ip=")
+				// Remove CIDR notation
+				ip := strings.Split(ipCidr, "/")[0]
+				// Skip DHCP
+				if ip != "dhcp" {
+					return ip, nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no static IP configured")
 }
 
 // DeleteBackup deletes a backup

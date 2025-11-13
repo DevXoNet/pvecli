@@ -30,6 +30,8 @@ help:
 
 # Setup - Download and install all required Go modules
 setup:
+	@echo "==> Installing golang.org/x/crypto/ssh..."
+	go get golang.org/x/crypto/ssh@v0.31.0
 	@echo "==> Downloading Go modules..."
 	go mod download
 	@echo "==> Verifying Go modules..."

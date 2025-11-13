@@ -38,9 +38,26 @@ var configListCmd = &cobra.Command{
 	RunE:  runConfigList,
 }
 
+var configGetCmd = &cobra.Command{
+	Use:   "get [key]",
+	Short: "Get configuration value",
+	Long:  "Get configuration value. If no key specified, shows all settings.\n\nAvailable keys: output_format, default_env, debug",
+	RunE:  runConfigGet,
+}
+
+var configSetCmd = &cobra.Command{
+	Use:   "set <key> <value>",
+	Short: "Set configuration value",
+	Long:  "Set configuration value.\n\nAvailable keys:\n  output_format (json|yaml|text)\n  default_env (environment name)\n  debug (true|false)",
+	Args:  cobra.ExactArgs(2),
+	RunE:  runConfigSet,
+}
+
 func init() {
 	rootCmd.AddCommand(configCmd)
 	configCmd.AddCommand(configListCmd)
+	configCmd.AddCommand(configGetCmd)
+	configCmd.AddCommand(configSetCmd)
 }
 
 func runConfigList(cmd *cobra.Command, args []string) error {
@@ -72,6 +89,89 @@ func runConfigList(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Default environment: %s\n", cfg.DefaultEnv)
 	fmt.Printf("Output format: %s\n", cfg.OutputFormat)
 	
+	return nil
+}
+
+func runConfigGet(cmd *cobra.Command, args []string) error {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// If no key specified, show all settings
+	if len(args) == 0 {
+		fmt.Println("=== Configuration Settings ===")
+		fmt.Printf("Output format: %s\n", cfg.OutputFormat)
+		fmt.Printf("Default environment: %s\n", cfg.DefaultEnv)
+		fmt.Printf("Debug: %v\n", cfg.Debug)
+		return nil
+	}
+
+	key := args[0]
+	switch key {
+	case "output_format":
+		fmt.Println(cfg.OutputFormat)
+	case "default_env":
+		fmt.Println(cfg.DefaultEnv)
+	case "debug":
+		fmt.Println(cfg.Debug)
+	default:
+		return fmt.Errorf("unknown key: %s\n\nAvailable keys: output_format, default_env, debug", key)
+	}
+
+	return nil
+}
+
+func runConfigSet(cmd *cobra.Command, args []string) error {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	key := args[0]
+	value := args[1]
+
+	switch key {
+	case "output_format":
+		switch strings.ToLower(value) {
+		case "json":
+			cfg.OutputFormat = config.OutputFormatJSON
+		case "yaml":
+			cfg.OutputFormat = config.OutputFormatYAML
+		case "text":
+			cfg.OutputFormat = config.OutputFormatText
+		default:
+			return fmt.Errorf("invalid output format: %s (must be json, yaml, or text)", value)
+		}
+		fmt.Printf("✓ Output format set to: %s\n", cfg.OutputFormat)
+
+	case "default_env":
+		if _, exists := cfg.Environments[value]; !exists {
+			return fmt.Errorf("environment '%s' does not exist\n\nRun 'pvecli config list' to see available environments", value)
+		}
+		cfg.DefaultEnv = value
+		fmt.Printf("✓ Default environment set to: %s\n", value)
+
+	case "debug":
+		switch strings.ToLower(value) {
+		case "true", "1", "yes":
+			cfg.Debug = true
+		case "false", "0", "no":
+			cfg.Debug = false
+		default:
+			return fmt.Errorf("invalid debug value: %s (must be true or false)", value)
+		}
+		fmt.Printf("✓ Debug set to: %v\n", cfg.Debug)
+
+	default:
+		return fmt.Errorf("unknown key: %s\n\nAvailable keys: output_format, default_env, debug", key)
+	}
+
+	// Save the configuration
+	if err := config.SaveConfig(cfg); err != nil {
+		return fmt.Errorf("error saving configuration: %w", err)
+	}
+
 	return nil
 }
 
@@ -112,9 +212,19 @@ func runConfig(cmd *cobra.Command, args []string) error {
 
 	cluster := &config.ClusterConfig{}
 
-	fmt.Print("API URL (e.g. https://proxmox.example.com:8006/api2/json): ")
-	cluster.APIURL, _ = reader.ReadString('\n')
-	cluster.APIURL = strings.TrimSpace(cluster.APIURL)
+	fmt.Print("API URL (IP or hostname, e.g. 192.168.1.10 or pve.example.com): ")
+	apiInput, _ := reader.ReadString('\n')
+	apiInput = strings.TrimSpace(apiInput)
+	
+	// Auto-format API URL
+	if !strings.HasPrefix(apiInput, "http://") && !strings.HasPrefix(apiInput, "https://") {
+		// Remove any trailing slashes or paths
+		apiInput = strings.TrimRight(apiInput, "/")
+		// Add https:// prefix and standard Proxmox API path
+		cluster.APIURL = fmt.Sprintf("https://%s:8006/api2/json", apiInput)
+	} else {
+		cluster.APIURL = apiInput
+	}
 
 	fmt.Print("Token ID (e.g. root@pam!mytoken): ")
 	cluster.TokenID, _ = reader.ReadString('\n')
@@ -124,9 +234,43 @@ func runConfig(cmd *cobra.Command, args []string) error {
 	cluster.TokenSecret, _ = reader.ReadString('\n')
 	cluster.TokenSecret = strings.TrimSpace(cluster.TokenSecret)
 
-	fmt.Print("Skip SSL verification (yes/no, default: no): ")
+	fmt.Print("Skip SSL verification (yes/no, default: yes): ")
 	insecure, _ := reader.ReadString('\n')
-	cluster.InsecureSkipVerify = strings.ToLower(strings.TrimSpace(insecure)) == "yes"
+	insecure = strings.ToLower(strings.TrimSpace(insecure))
+	// Default to yes (skip verification)
+	if insecure == "" || insecure == "yes" || insecure == "y" {
+		cluster.InsecureSkipVerify = true
+	} else {
+		cluster.InsecureSkipVerify = false
+	}
+
+	// SSH settings (optional)
+	fmt.Println("\n--- SSH Settings (optional, for cluster update command) ---")
+	
+	fmt.Print("SSH User (default: root): ")
+	sshUser, _ := reader.ReadString('\n')
+	sshUser = strings.TrimSpace(sshUser)
+	if sshUser != "" {
+		cluster.SSHUser = sshUser
+	}
+
+	fmt.Print("SSH Key Path (default: ~/.ssh/id_rsa): ")
+	sshKey, _ := reader.ReadString('\n')
+	sshKey = strings.TrimSpace(sshKey)
+	if sshKey != "" {
+		cluster.SSHKeyPath = sshKey
+	}
+
+	fmt.Print("SSH Port (default: 22): ")
+	sshPortStr, _ := reader.ReadString('\n')
+	sshPortStr = strings.TrimSpace(sshPortStr)
+	if sshPortStr != "" {
+		var sshPort int
+		fmt.Sscanf(sshPortStr, "%d", &sshPort)
+		if sshPort > 0 {
+			cluster.SSHPort = sshPort
+		}
+	}
 
 	// Add cluster to environments
 	cfg.Environments[envName] = cluster
