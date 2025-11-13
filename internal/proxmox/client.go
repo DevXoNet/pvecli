@@ -128,7 +128,7 @@ func (c *Client) doRequest(method, path string, target interface{}) error {
 				id := parts[len(parts)-2]
 				return &FriendlyError{Msg: fmt.Sprintf("instance %s is not running", id)}
 			default:
-				return fmt.Errorf(errResp.Message)
+				return fmt.Errorf("%s", errResp.Message)
 			}
 		}
 
