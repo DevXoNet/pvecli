@@ -20,7 +20,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.10.1
-	golang.org/x/crypto v0.44.0 // includes ssh package
+	golang.org/x/crypto v0.31.0 // includes ssh package
 	golang.org/x/term v0.37.0
 	gopkg.in/yaml.v3 v3.0.1
 )
