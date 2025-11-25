@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package vm
 
 import (
 	"fmt"
@@ -101,13 +101,3 @@ var migrateCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	migrateCmd.Flags().StringVar(&migrateTarget, "target", "", "Target node name (required)")
-	migrateCmd.Flags().BoolVar(&migrateOnline, "online", false, "Perform live (online) migration")
-	migrateCmd.Flags().BoolVar(&migrateWait, "wait", true, "Wait for the migration task to complete")
-	migrateCmd.Flags().IntVar(&migrateTimeout, "timeout", 600, "Wait timeout in seconds")
-
-	migrateCmd.MarkFlagRequired("target")
-
-	rootCmd.AddCommand(migrateCmd)
-}

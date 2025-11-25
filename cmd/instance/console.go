@@ -10,7 +10,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package cmd
+
+package instance
 
 import (
 	"fmt"
@@ -95,7 +96,7 @@ Press Ctrl+D or type 'exit' to close the SSH session.`,
 
 		// Find node and instance type
 		fmt.Printf("Locating instance %s...\n", vmid)
-		node, instanceType, err := client.FindNodeByVMID(vmid)
+		node, instanceType, err := FindInstance(client, vmid)
 		if err != nil {
 			output.PrintError(err)
 			return nil
@@ -104,7 +105,7 @@ Press Ctrl+D or type 'exit' to close the SSH session.`,
 		// Try to get VM/container IP
 		var vmIP string
 		var ipErr error
-		
+
 		if instanceType == "qemu" {
 			fmt.Printf("Getting IP from QEMU Guest Agent...\n")
 			vmIP, ipErr = client.GetVMIPFromAgent(node, vmid)
@@ -170,11 +171,4 @@ Press Ctrl+D or type 'exit' to close the SSH session.`,
 		}
 		return nil
 	},
-}
-
-func init() {
-	consoleCmd.Flags().StringVar(&consoleSSHUser, "ssh-user", "", "SSH user (default: root or from config)")
-	consoleCmd.Flags().StringVar(&consoleSSHKeyPath, "ssh-key", "", "SSH private key path (default: ~/.ssh/id_rsa or from config)")
-	consoleCmd.Flags().IntVar(&consoleSSHPort, "ssh-port", 0, "SSH port (default: 22 or from config)")
-	rootCmd.AddCommand(consoleCmd)
 }

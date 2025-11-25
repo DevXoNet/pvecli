@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package instance
 
 import (
 	"fmt"
@@ -24,42 +24,35 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var rebootCmd = &cobra.Command{
-	Use:           "reboot <vmid>",
-	Short:         "Reboot VM or container",
+var stopCmd = &cobra.Command{
+	SilenceUsage:  true, // Don't show usage on error
+	SilenceErrors: true, // Don't show error: prefix
+	Use:           "stop <vmid/ctid>",
+	Short:         "Stop VM or container by ID (node auto-detected)",
 	Args:          cobra.ExactArgs(1),
-	SilenceUsage:  true,
-	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vmid := args[0]
-
 		cfg, err := config.LoadConfig()
-		if err != nil {
-			return fmt.Errorf("config error: %w", err)
-		}
-		client := pve.NewClient(cfg)
-
-		// Find node
-		node, instanceType, err := client.FindNodeByVMID(vmid)
 		if err != nil {
 			return err
 		}
-
-		// Reboot
-		err = client.RebootInstance(node, vmid, instanceType)
+		client := pve.NewClient(cfg)
+		node, vmType, err := FindInstance(client, vmid)
 		if err != nil {
-			return fmt.Errorf("failed to reboot: %w", err)
+			return err
 		}
-
-		return output.PrintSuccess(fmt.Sprintf("Instance %s rebooted successfully", vmid), map[string]interface{}{
-			"vmid":   vmid,
-			"node":   node,
-			"type":   instanceType,
-			"action": "reboot",
-		})
+		err = client.VMAction(node, vmid, "stop")
+		if err != nil {
+			return err
+		}
+		
+		// Output success message
+		data := map[string]interface{}{
+			"vmid": vmid,
+			"node": node,
+			"type": vmType,
+		}
+		return output.PrintSuccess(fmt.Sprintf("VM/CT %s stopped successfully", vmid), data)
 	},
 }
 
-func init() {
-	rootCmd.AddCommand(rebootCmd)
-}

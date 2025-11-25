@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package vm
 
 import (
 	"fmt"
@@ -212,17 +212,3 @@ Examples:
 	},
 }
 
-func init() {
-	cloneCmd.Flags().IntVar(&cloneNewID, "new-id", 0, "New VM ID (required)")
-	cloneCmd.Flags().StringVar(&cloneName, "name", "", "Name for the new VM")
-	cloneCmd.Flags().StringVar(&cloneDescription, "description", "", "Description for the new VM")
-	cloneCmd.Flags().StringVar(&clonePool, "pool", "", "Add to resource pool")
-	cloneCmd.Flags().StringVar(&cloneStorage, "storage", "", "Target storage (for full clone)")
-	cloneFull = true
-	cloneCmd.Flags().BoolVar(&cloneFull, "full", cloneFull, "Full clone (set --full=false for linked clone)")
-	cloneCmd.Flags().BoolVar(&cloneStart, "start", false, "Start VM after cloning")
-
-	cloneCmd.MarkFlagRequired("new-id")
-
-	rootCmd.AddCommand(cloneCmd)
-}

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package agent
 
 import (
 	"fmt"
@@ -238,14 +238,8 @@ var agentFSInfoCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	// Add subcommands
-	agentCmd.AddCommand(agentPingCmd)
-	agentCmd.AddCommand(agentNetworkCmd)
-	agentCmd.AddCommand(agentOSInfoCmd)
-	// agentCmd.AddCommand(agentExecCmd) // Disabled - timing issues with fast commands
-	agentCmd.AddCommand(agentFSInfoCmd)
 
-	// Add to root
-	rootCmd.AddCommand(agentCmd)
+// Init registers all agent commands
+func Init(root *cobra.Command) {
+root.AddCommand(agentCmd)
 }

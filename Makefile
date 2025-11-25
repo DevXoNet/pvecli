@@ -45,7 +45,11 @@ setup:
 
 # Build local binary
 build:
+	@echo "==> Checking dependencies..."
+	@go mod verify || (echo "Dependencies not verified. Run 'make setup' first." && exit 1)
+	@echo "==> Building $(APP_NAME)..."
 	CGO_ENABLED=0 go build -tags release -ldflags "$(LD_FLAGS)" -o $(APP_NAME) main.go
+	@echo "==> Build complete: ./$(APP_NAME)"
 
 # Cross-compilation for multiple platforms
 build-all:

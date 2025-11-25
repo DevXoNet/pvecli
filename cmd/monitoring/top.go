@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package monitoring
 
 import (
 	"fmt"
@@ -488,8 +488,3 @@ func showCursor() {
 	fmt.Print("\033[?25h")
 }
 
-func init() {
-	topCmd.Flags().IntVarP(&topRefreshInterval, "interval", "i", 2, "Refresh interval in seconds")
-	topCmd.Flags().StringVarP(&topSortBy, "sort-by", "s", "cpu", "Sort by: cpu, mem, disk, net, id")
-	rootCmd.AddCommand(topCmd)
-}

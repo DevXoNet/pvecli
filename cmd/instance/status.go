@@ -4,14 +4,15 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//	http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package cmd
+
+package instance
 
 import (
 	"pvecli/config"
@@ -21,34 +22,53 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var infoCmd = &cobra.Command{
-	Use:           "info <vmid/ctid>",
-	Short:         "Show configuration info for VM or container by ID (node auto-detected)",
+var statusCmd = &cobra.Command{
+	Use:           "status <vmid/ctid>",
+	Short:         "Show current status of VM or container",
 	Args:          cobra.ExactArgs(1),
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		vmid := args[0]
 		cfg, err := config.LoadConfig()
 		if err != nil {
 			return err
 		}
+
 		client := pve.NewClient(cfg)
+		vmid := args[0]
 
-		node, instanceType, err := client.FindNodeByVMID(vmid)
+		// Find which node has this VM/CT and its type
+		node, instanceType, err := FindInstance(client, vmid)
 		if err != nil {
 			return err
 		}
 
-		conf, err := client.GetInstanceConfig(node, vmid, instanceType)
+		// Get status
+		status, err := client.GetInstanceStatus(node, vmid, instanceType)
 		if err != nil {
 			return err
 		}
 
-		return output.Print(conf)
+		// Extract key information
+		name := status["name"]
+		statusStr := status["status"]
+		vmType := instanceType
+		if vmType == "ct" {
+			vmType = "LXC"
+		} else {
+			vmType = "VM"
+		}
+
+		// Prepare output data
+		data := map[string]interface{}{
+			"vmid":   vmid,
+			"name":   name,
+			"status": statusStr,
+			"type":   vmType,
+			"node":   node,
+		}
+
+		return output.Print(data)
 	},
 }
 
-func init() {
-	rootCmd.AddCommand(infoCmd)
-}

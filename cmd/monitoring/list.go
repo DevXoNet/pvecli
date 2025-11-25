@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package monitoring
 
 import (
 	"encoding/json"
@@ -234,10 +234,3 @@ var listCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	listCmd.Flags().StringVarP(&nodeFlag, "node", "n", "", "Filter instances by node name")
-	listCmd.Flags().StringVarP(&instanceType, "type", "t", "", "Filter by type: vm or ct")
-	listCmd.Flags().BoolVarP(&runningOnly, "running", "r", false, "Show only running instances")
-	listCmd.Flags().BoolVar(&tableFormat, "table", false, "Force table output format (overrides config)")
-	rootCmd.AddCommand(listCmd)
-}

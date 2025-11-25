@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package vm
 
 import (
 	"fmt"
@@ -104,7 +104,3 @@ var resumeCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	rootCmd.AddCommand(suspendCmd)
-	rootCmd.AddCommand(resumeCmd)
-}
