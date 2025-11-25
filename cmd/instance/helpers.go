@@ -14,27 +14,10 @@
 package instance
 
 import (
-	"fmt"
 	"pvecli/internal/pve"
 )
 
 // FindInstance finds the node and instance type for a given VMID
 func FindInstance(client *pve.Client, vmid string) (node, instanceType string, err error) {
 	return client.FindNodeByVMID(vmid)
-}
-
-// ValidateVMOnly checks if the instance is a VM (qemu), returns error if it's LXC
-func ValidateVMOnly(instanceType string) error {
-	if instanceType != "qemu" {
-		return fmt.Errorf("this command only works with VMs (qemu), not LXC containers")
-	}
-	return nil
-}
-
-// ValidateLXCOnly checks if the instance is an LXC container, returns error if it's VM
-func ValidateLXCOnly(instanceType string) error {
-	if instanceType != "lxc" {
-		return fmt.Errorf("this command only works with LXC containers, not VMs")
-	}
-	return nil
 }

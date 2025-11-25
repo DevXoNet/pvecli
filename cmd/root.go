@@ -20,6 +20,8 @@ import (
 	"os"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"pvecli/cmd/agent"
 	"pvecli/cmd/cluster"
 	"pvecli/cmd/instance"
@@ -34,7 +36,6 @@ import (
 	"pvecli/internal/pve"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var debugFlag bool

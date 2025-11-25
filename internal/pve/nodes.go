@@ -63,20 +63,6 @@ func (c *Client) GetNodes() ([]Node, error) {
 	return out.Data, nil
 }
 
-// GetNodeIP returns the IP address of a specific node
-func (c *Client) GetNodeIP(nodeName string) (string, error) {
-	nodes, err := c.GetNodes()
-	if err != nil {
-		return "", err
-	}
-	for _, n := range nodes {
-		if n.Node == nodeName {
-			return n.IP, nil
-		}
-	}
-	return "", fmt.Errorf("node %s not found", nodeName)
-}
-
 // GetNodeStatus returns status information for a specific node
 func (c *Client) GetNodeStatus(node string) (map[string]interface{}, error) {
 	type wrap struct {
@@ -85,25 +71,6 @@ func (c *Client) GetNodeStatus(node string) (map[string]interface{}, error) {
 	var out wrap
 	err := c.doRequest("GET", fmt.Sprintf("/nodes/%s/status", node), &out)
 	return out.Data, err
-}
-
-// GetSubscriptionStatus returns subscription status for a node
-func (c *Client) GetSubscriptionStatus(node string) (map[string]interface{}, error) {
-	type wrap struct {
-		Data map[string]interface{} `json:"data"`
-	}
-	var out wrap
-	err := c.doRequest("GET", fmt.Sprintf("/nodes/%s/subscription", node), &out)
-	return out.Data, err
-}
-
-// RunNodeCommand executes a shell command on a node
-func (c *Client) RunNodeCommand(node, command string) error {
-	data := map[string]string{
-		"command": command,
-	}
-	var result map[string]interface{}
-	return c.doRequestWithData("POST", fmt.Sprintf("/nodes/%s/execute", node), data, &result)
 }
 
 // GetStorages returns storage information for a node
@@ -204,28 +171,9 @@ func (c *Client) ListBackups(node, storage, vmid string) ([]map[string]interface
 	return out.Data, err
 }
 
-// DeleteBackup deletes a backup by volume ID
+// DeleteBackup deletes a backup from storage
 func (c *Client) DeleteBackup(node, storage, volid string) error {
 	return c.doRequest("DELETE", fmt.Sprintf("/nodes/%s/storage/%s/content/%s", node, storage, volid), nil)
-}
-
-// CreateBackup creates a backup/snapshot to PBS storage
-func (c *Client) CreateBackup(node, vmid, instanceType, storage string) (string, error) {
-	vmidInt, err := strconv.Atoi(vmid)
-	if err != nil {
-		return "", fmt.Errorf("invalid vmid: %s", vmid)
-	}
-	data := map[string]string{
-		"vmid":    vmid,
-		"storage": storage,
-		"mode":    "snapshot",
-	}
-	var out struct {
-		Data string `json:"data"`
-	}
-	endpoint := fmt.Sprintf("/nodes/%s/%s/%d/backup", node, instanceType, vmidInt)
-	err = c.doRequestWithData("POST", endpoint, data, &out)
-	return out.Data, err
 }
 
 // FindVMIDOnNode searches for a VMID on a specific node
@@ -300,48 +248,6 @@ func (c *Client) GetInstanceConfig(node, vmid string, instanceType string) (map[
 	}
 	err := c.doRequest("GET", fmt.Sprintf("/nodes/%s/%s/%s/config", node, apiType, vmid), &out)
 	return out.Data, err
-}
-
-// CreateTermProxy creates a terminal proxy session for a VM or container
-func (c *Client) CreateTermProxy(node, vmid, instanceType string) (*TermProxyResponse, error) {
-	type rawResponse struct {
-		UPID   string      `json:"upid"`
-		Port   interface{} `json:"port"`
-		Ticket string      `json:"ticket"`
-		User   string      `json:"user"`
-	}
-	type wrap struct {
-		Data rawResponse `json:"data"`
-	}
-	var out wrap
-	var apiType string
-	switch instanceType {
-	case "vm", "qemu":
-		apiType = "qemu"
-	case "ct", "lxc":
-		apiType = "lxc"
-	default:
-		apiType = instanceType
-	}
-	err := c.doRequestWithData("POST", fmt.Sprintf("/nodes/%s/%s/%s/termproxy", node, apiType, vmid), nil, &out)
-	if err != nil {
-		return nil, err
-	}
-	port := 0
-	switch v := out.Data.Port.(type) {
-	case string:
-		port, _ = strconv.Atoi(v)
-	case float64:
-		port = int(v)
-	case int:
-		port = v
-	}
-	return &TermProxyResponse{
-		UPID:   out.Data.UPID,
-		Port:   port,
-		Ticket: out.Data.Ticket,
-		User:   out.Data.User,
-	}, nil
 }
 
 // GetSnapshots returns list of snapshots for a VM or container

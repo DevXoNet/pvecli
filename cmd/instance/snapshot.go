@@ -138,3 +138,17 @@ Example:
 		return output.PrintSuccess(fmt.Sprintf("Snapshot '%s' deleted successfully", snapshotName), data)
 	},
 }
+
+func init() {
+	// Register delete subcommand
+	snapshotCmd.AddCommand(snapshotDelCmd)
+
+	// Flags for snapshot creation
+	snapshotCmd.Flags().StringVar(&snapshotName, "name", "", "Snapshot name (required)")
+	snapshotCmd.Flags().StringVar(&snapshotDescription, "description", "", "Snapshot description")
+	snapshotCmd.MarkFlagRequired("name")
+
+	// Flags for snapshot deletion
+	snapshotDelCmd.Flags().StringVar(&snapshotName, "name", "", "Snapshot name to delete (required)")
+	snapshotDelCmd.MarkFlagRequired("name")
+}

@@ -162,51 +162,6 @@ func (c *Client) doRequestWithData(method, path string, data map[string]string, 
 	return nil
 }
 
-// doRequestWithJSON performs HTTP request with JSON data
-func (c *Client) doRequestWithJSON(method, path string, data interface{}, target interface{}) error {
-	if c.Debug {
-		fmt.Printf("DEBUG: %s %s%s with JSON data: %+v\n", method, c.BaseURL, path, data)
-	}
-
-	url := fmt.Sprintf("%s%s", c.BaseURL, path)
-
-	var body io.Reader
-	if data != nil {
-		jsonData, err := json.Marshal(data)
-		if err != nil {
-			return fmt.Errorf("marshal json: %w", err)
-		}
-		body = bytes.NewReader(jsonData)
-	}
-
-	req, err := http.NewRequest(method, url, body)
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Authorization", fmt.Sprintf("PVEAPIToken=%s=%s", c.TokenID, c.Secret))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
-		if c.Debug {
-			fmt.Printf("DEBUG: Response Status: %d\nDEBUG: Response Body: %s\n", resp.StatusCode, string(body))
-		}
-		return fmt.Errorf("http %d for %s %s: %s", resp.StatusCode, method, path, string(body))
-	}
-
-	if target != nil {
-		return json.NewDecoder(resp.Body).Decode(target)
-	}
-	return nil
-}
-
 // FriendlyError is an error that should be displayed without the 'Error:' prefix
 type FriendlyError struct {
 	Msg string
@@ -278,14 +233,6 @@ type VMStatus struct {
 	Name    string
 	Status  string
 	RawData map[string]interface{}
-}
-
-// TermProxyResponse represents terminal proxy response
-type TermProxyResponse struct {
-	UPID   string
-	Port   int
-	Ticket string
-	User   string
 }
 
 // CloneParams represents parameters for cloning a VM

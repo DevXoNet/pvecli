@@ -241,5 +241,19 @@ func parseUPIDNode(upid string) (string, error) {
 
 // Init registers all task commands
 func Init(root *cobra.Command) {
+	// Register subcommands to taskCmd
+	taskCmd.AddCommand(taskListCmd)
+	taskCmd.AddCommand(taskStatusCmd)
+	taskCmd.AddCommand(taskLogCmd)
+	taskCmd.AddCommand(taskWaitCmd)
+
+	// Register flags
+	taskListCmd.Flags().IntVar(&taskLimit, "limit", 50, "Limit number of tasks")
+	taskListCmd.Flags().StringVar(&taskNode, "node", "", "Filter by node")
+
+	taskLogCmd.Flags().BoolVar(&taskFollow, "follow", false, "Follow log output")
+	taskLogCmd.Flags().IntVar(&taskLines, "lines", 50, "Number of lines to show")
+
+	// Register taskCmd to root
 	root.AddCommand(taskCmd)
 }

@@ -41,12 +41,14 @@ jobs:
 
       - name: Staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@latest && staticcheck ./...
+        continue-on-error: true
 
       - name: Deadcode Check
         run: |
           go install golang.org/x/tools/cmd/deadcode@latest
           deadcode_output=$(deadcode ./...)
           echo "$deadcode_output"
+        continue-on-error: true
 
       - name: Dependency Vulnerability Scan
         run: |

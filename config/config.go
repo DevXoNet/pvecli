@@ -224,16 +224,3 @@ func GetCurrentCluster() (*ClusterConfig, error) {
 
 	return cluster, nil
 }
-
-// GetEnvironments returns all configured environment names
-func GetEnvironments() []string {
-	if cfg == nil {
-		return nil
-	}
-
-	envs := make([]string, 0, len(cfg.Environments))
-	for env := range cfg.Environments {
-		envs = append(envs, env)
-	}
-	return envs
-}

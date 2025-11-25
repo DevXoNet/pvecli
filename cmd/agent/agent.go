@@ -240,5 +240,13 @@ var agentFSInfoCmd = &cobra.Command{
 
 // Init registers all agent commands
 func Init(root *cobra.Command) {
+	// Register subcommands to agentCmd
+	agentCmd.AddCommand(agentPingCmd)
+	agentCmd.AddCommand(agentNetworkCmd)
+	agentCmd.AddCommand(agentOSInfoCmd)
+	agentCmd.AddCommand(agentExecCmd)
+	agentCmd.AddCommand(agentFSInfoCmd)
+
+	// Register agentCmd to root
 	root.AddCommand(agentCmd)
 }

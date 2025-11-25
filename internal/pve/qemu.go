@@ -20,22 +20,6 @@ import (
 	"strings"
 )
 
-// GetVMsLight returns list of VMs on a node without fetching config (faster)
-func (c *Client) GetVMsLight(node string) ([]Instance, error) {
-	type instanceList struct {
-		Data []Instance `json:"data"`
-	}
-	var out instanceList
-	err := c.doRequest("GET", fmt.Sprintf("/nodes/%s/qemu", node), &out)
-	if err != nil {
-		return nil, err
-	}
-	for i := range out.Data {
-		out.Data[i].Type = "vm"
-	}
-	return out.Data, nil
-}
-
 // GetVMs returns list of VMs on a node with full config details
 func (c *Client) GetVMs(node string) ([]Instance, error) {
 	type instanceList struct {
@@ -91,28 +75,6 @@ func (c *Client) GetVMConfig(node, vmid string) (map[string]interface{}, error) 
 	}
 	err = c.doRequest("GET", fmt.Sprintf("/nodes/%s/qemu/%d/config", node, vmidInt), &out)
 	return out.Data, err
-}
-
-// GetVMStatus gets current status and statistics for a VM
-func (c *Client) GetVMStatus(node string, vmid int, vmType string) (*VMStatus, error) {
-	var out struct {
-		Data map[string]interface{} `json:"data"`
-	}
-	endpoint := fmt.Sprintf("/nodes/%s/%s/%d/status/current", node, vmType, vmid)
-	err := c.doRequest("GET", endpoint, &out)
-	if err != nil {
-		return nil, err
-	}
-	status := &VMStatus{
-		RawData: out.Data,
-	}
-	if name, ok := out.Data["name"].(string); ok {
-		status.Name = name
-	}
-	if st, ok := out.Data["status"].(string); ok {
-		status.Status = st
-	}
-	return status, nil
 }
 
 // StartVM starts a VM or container

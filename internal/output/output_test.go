@@ -65,21 +65,6 @@ func TestPrintError(t *testing.T) {
 	PrintError(err)
 }
 
-func TestPrintTable(t *testing.T) {
-	table := &Table{
-		Headers: []string{"Name", "Status", "ID"},
-		Rows: [][]string{
-			{"test1", "running", "100"},
-			{"test2", "stopped", "101"},
-		},
-	}
-
-	err := PrintTable(table)
-	if err != nil {
-		t.Errorf("PrintTable failed: %v", err)
-	}
-}
-
 func TestPrintSuccess(t *testing.T) {
 	data := map[string]interface{}{
 		"vmid": "100",

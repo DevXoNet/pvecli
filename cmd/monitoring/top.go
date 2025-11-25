@@ -189,61 +189,6 @@ type vmStats struct {
 	NetOutRate    uint64 // Bytes per second
 }
 
-func getVMStats(client *pve.Client, node string, vmid int, vmType string) (vmStats, error) {
-	var stats vmStats
-	stats.VMID = vmid
-
-	// Get current status
-	status, err := client.GetVMStatus(node, vmid, vmType)
-	if err != nil {
-		return stats, err
-	}
-
-	stats.Name = status.Name
-	stats.Status = status.Status
-
-	// Only get detailed stats for running VMs
-	if status.Status != "running" {
-		return stats, nil
-	}
-
-	// CPU usage (percentage)
-	if cpu, ok := status.RawData["cpu"].(float64); ok {
-		stats.CPUUsage = cpu * 100
-	}
-
-	// CPU cores
-	if cpus, ok := status.RawData["cpus"].(float64); ok {
-		stats.CPUCores = int(cpus)
-	}
-
-	// Memory
-	if mem, ok := status.RawData["mem"].(float64); ok {
-		stats.MemUsage = uint64(mem)
-	}
-	if maxmem, ok := status.RawData["maxmem"].(float64); ok {
-		stats.MemTotal = uint64(maxmem)
-	}
-
-	// Disk I/O
-	if diskread, ok := status.RawData["diskread"].(float64); ok {
-		stats.DiskRead = uint64(diskread)
-	}
-	if diskwrite, ok := status.RawData["diskwrite"].(float64); ok {
-		stats.DiskWrite = uint64(diskwrite)
-	}
-
-	// Network I/O
-	if netin, ok := status.RawData["netin"].(float64); ok {
-		stats.NetIn = uint64(netin)
-	}
-	if netout, ok := status.RawData["netout"].(float64); ok {
-		stats.NetOut = uint64(netout)
-	}
-
-	return stats, nil
-}
-
 func calculateRates(stats []vmStats) {
 	for i := range stats {
 		// Create unique key for this VM/CT
@@ -253,25 +198,38 @@ func calculateRates(stats []vmStats) {
 		if prev, exists := previousStats[key]; exists && stats[i].Status == "running" {
 			// Calculate rates (bytes per refresh interval, then convert to per second)
 			timeDelta := float64(topRefreshInterval)
+			if timeDelta == 0 {
+				timeDelta = 1 // Prevent division by zero
+			}
 
 			// Disk read rate
 			if stats[i].DiskRead >= prev.DiskRead {
-				stats[i].DiskReadRate = uint64(float64(stats[i].DiskRead-prev.DiskRead) / timeDelta)
+				delta := stats[i].DiskRead - prev.DiskRead
+				stats[i].DiskReadRate = uint64(float64(delta) / timeDelta)
+			} else {
+				// Counter reset
+				stats[i].DiskReadRate = 0
 			}
 
 			// Disk write rate
 			if stats[i].DiskWrite >= prev.DiskWrite {
 				stats[i].DiskWriteRate = uint64(float64(stats[i].DiskWrite-prev.DiskWrite) / timeDelta)
+			} else {
+				stats[i].DiskWriteRate = 0
 			}
 
 			// Network in rate
 			if stats[i].NetIn >= prev.NetIn {
 				stats[i].NetInRate = uint64(float64(stats[i].NetIn-prev.NetIn) / timeDelta)
+			} else {
+				stats[i].NetInRate = 0
 			}
 
 			// Network out rate
 			if stats[i].NetOut >= prev.NetOut {
 				stats[i].NetOutRate = uint64(float64(stats[i].NetOut-prev.NetOut) / timeDelta)
+			} else {
+				stats[i].NetOutRate = 0
 			}
 		}
 
@@ -486,4 +444,9 @@ func hideCursor() {
 
 func showCursor() {
 	fmt.Print("\033[?25h")
+}
+
+func init() {
+	topCmd.Flags().IntVarP(&topRefreshInterval, "interval", "i", 5, "Refresh interval in seconds")
+	topCmd.Flags().StringVarP(&topSortBy, "sort-by", "s", "id", "Sort by: cpu, mem, disk, net, id")
 }
