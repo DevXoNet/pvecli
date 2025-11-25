@@ -15,14 +15,13 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"pvecli/config"
+	"pvecli/internal/output"
 	"pvecli/internal/proxmox"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -37,9 +36,11 @@ var backupCmd = &cobra.Command{
 }
 
 var backupListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List backups",
-	Long:  "List all backups on specified storage (use storage name or type: pbs/nfs)",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Use:           "list",
+	Short:         "List backups",
+	Long:          "List all backups on specified storage (use storage name or type: pbs/nfs)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if backupStorage == "" {
 			return fmt.Errorf("--storage flag is required")
@@ -98,33 +99,18 @@ var backupListCmd = &cobra.Command{
 			return fmt.Errorf("failed to list backups: %w", err)
 		}
 
-		// Output based on configured format
-		outputFormat := config.GetOutputFormat()
-
-		switch outputFormat {
-		case config.OutputFormatJSON:
-			b, _ := json.MarshalIndent(backups, "", "  ")
-			fmt.Println(string(b))
-
-		case config.OutputFormatYAML:
-			b, _ := yaml.Marshal(backups)
-			fmt.Print(string(b))
-
-		case config.OutputFormatText:
-			for _, backup := range backups {
-				fmt.Printf("%s\n", backup["volid"])
-			}
-		}
-
-		return nil
+		// Output using output package
+		return output.Print(backups)
 	},
 }
 
 var backupDeleteCmd = &cobra.Command{
-	Use:   "delete <volid>",
-	Short: "Delete a backup",
-	Long:  "Delete a backup by its volume ID (use storage name or type: pbs/nfs)",
-	Args:  cobra.ExactArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Use:           "delete <volid>",
+	Short:         "Delete a backup",
+	Long:          "Delete a backup by its volume ID (use storage name or type: pbs/nfs)",
+	Args:          cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		volid := args[0]
 
@@ -185,35 +171,12 @@ var backupDeleteCmd = &cobra.Command{
 			return fmt.Errorf("failed to delete backup: %w", err)
 		}
 
-		// Output based on configured format
-		outputFormat := config.GetOutputFormat()
-
-		switch outputFormat {
-		case config.OutputFormatJSON:
-			output := map[string]interface{}{
-				"volid":   volid,
-				"storage": backupStorage,
-				"action":  "delete",
-				"status":  "success",
-			}
-			b, _ := json.MarshalIndent(output, "", "  ")
-			fmt.Println(string(b))
-
-		case config.OutputFormatYAML:
-			output := map[string]interface{}{
-				"volid":   volid,
-				"storage": backupStorage,
-				"action":  "delete",
-				"status":  "success",
-			}
-			b, _ := yaml.Marshal(output)
-			fmt.Print(string(b))
-
-		case config.OutputFormatText:
-			fmt.Printf("Backup %s deleted successfully\n", volid)
+		// Output using output package
+		data := map[string]interface{}{
+			"volid":   volid,
+			"storage": resolvedStorage,
 		}
-
-		return nil
+		return output.PrintSuccess(fmt.Sprintf("Backup %s deleted successfully", volid), data)
 	},
 }
 

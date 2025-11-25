@@ -19,6 +19,7 @@ import (
 	"strconv"
 
 	"pvecli/config"
+	"pvecli/internal/output"
 	"pvecli/internal/proxmox"
 
 	"github.com/spf13/cobra"
@@ -35,8 +36,10 @@ var (
 )
 
 var cloneCmd = &cobra.Command{
-	Use:   "clone <template-vmid>",
-	Short: "Clone a VM template",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Use:           "clone <template-vmid>",
+	Short:         "Clone a VM template",
 	Long: `Clone a VM template to create a new VM.
 
 Default mode is Full Clone (independent copy). Linked Clone is optional for same-node fast clones.
@@ -168,7 +171,28 @@ Examples:
 			fmt.Printf("✓ VM %d started successfully\n", cloneNewID)
 		}
 
-		// Show new VM info
+		// Prepare output data
+		outputFormat := config.GetOutputFormat()
+		if outputFormat == config.OutputFormatJSON || outputFormat == config.OutputFormatYAML {
+			// Structured output for JSON/YAML
+			data := map[string]interface{}{
+				"template_id": templateID,
+				"new_vm_id":   cloneNewID,
+				"name":        cloneName,
+				"node":        targetNode,
+				"mode":        cloneMode,
+				"started":     cloneStart,
+			}
+			if cloneStorage != "" {
+				data["storage"] = cloneStorage
+			}
+			if clonePool != "" {
+				data["pool"] = clonePool
+			}
+			return output.PrintSuccess(fmt.Sprintf("VM %d cloned successfully to VM %d", templateID, cloneNewID), data)
+		}
+
+		// Text output with formatted display
 		fmt.Println("\n╔════════════════════════════════════════╗")
 		fmt.Println("║           Clone Complete               ║")
 		fmt.Println("╚════════════════════════════════════════╝")

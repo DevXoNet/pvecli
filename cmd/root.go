@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"pvecli/config"
+	"pvecli/internal/output"
 	"pvecli/internal/proxmox"
 
 	"github.com/spf13/cobra"
@@ -136,7 +137,8 @@ func Execute() {
 				fmt.Println(msg)
 			}
 		} else {
-			fmt.Printf("Error: %v\n", err)
+			// Regular error - use output module
+			output.PrintError(err)
 		}
 		os.Exit(1)
 	}

@@ -15,16 +15,14 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
 	"pvecli/config"
+	"pvecli/internal/output"
 	"pvecli/internal/proxmox"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -34,8 +32,10 @@ var (
 )
 
 var snapshotCmd = &cobra.Command{
-	Use:   "snapshot <vmid>",
-	Short: "Create a snapshot of a VM or container",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Use:           "snapshot <vmid>",
+	Short:         "Create a snapshot of a VM or container",
 	Long: `Create a snapshot of a VM or container.
 
 A snapshot captures the current state of the VM/container and can be used to restore it later.
@@ -70,84 +70,30 @@ Example:
 		// Create snapshot (includeRAM is true by default, unless --no-ram is specified)
 		includeRAM := !snapshotNoRAM
 		taskID, err := client.CreateSnapshot(node, vmid, instanceType, snapName, snapshotDescription, includeRAM)
-
-		// Get output format before handling error
-		outputFormat := config.GetOutputFormat()
-
 		if err != nil {
-			// Format error according to output format
-			switch outputFormat {
-			case config.OutputFormatJSON:
-				errorOutput := map[string]interface{}{
-					"error":  err.Error(),
-					"vmid":   vmid,
-					"status": "failed",
-				}
-				b, _ := json.MarshalIndent(errorOutput, "", "  ")
-				fmt.Println(string(b))
-			case config.OutputFormatYAML:
-				errorOutput := map[string]interface{}{
-					"error":  err.Error(),
-					"vmid":   vmid,
-					"status": "failed",
-				}
-				b, _ := yaml.Marshal(errorOutput)
-				fmt.Print(string(b))
-			case config.OutputFormatText:
-				fmt.Printf("Error: %s\n", err.Error())
-			}
-			os.Exit(1)
+			return err
 		}
 
-		// Output based on configured format
-		switch outputFormat {
-		case config.OutputFormatJSON:
-			output := map[string]interface{}{
-				"vmid":        vmid,
-				"node":        node,
-				"type":        instanceType,
-				"snapshot":    snapName,
-				"description": snapshotDescription,
-				"task_id":     taskID,
-				"status":      "started",
-			}
-			b, err := json.MarshalIndent(output, "", "  ")
-			if err != nil {
-				return fmt.Errorf("marshal json: %w", err)
-			}
-			fmt.Println(string(b))
-
-		case config.OutputFormatYAML:
-			output := map[string]interface{}{
-				"vmid":        vmid,
-				"node":        node,
-				"type":        instanceType,
-				"snapshot":    snapName,
-				"description": snapshotDescription,
-				"task_id":     taskID,
-				"status":      "started",
-			}
-			b, err := yaml.Marshal(output)
-			if err != nil {
-				return fmt.Errorf("marshal yaml: %w", err)
-			}
-			fmt.Print(string(b))
-
-		case config.OutputFormatText:
-			fmt.Printf("Snapshot '%s' created successfully\n", snapName)
-			if taskID != "" {
-				fmt.Printf("Task ID: %s\n", taskID)
-				fmt.Println("Use 'pvecli task <task_id>' to monitor progress")
-			}
+		// Output using output package
+		data := map[string]interface{}{
+			"vmid":     vmid,
+			"node":     node,
+			"type":     instanceType,
+			"snapshot": snapName,
+			"task_id":  taskID,
 		}
-
-		return nil
+		if snapshotDescription != "" {
+			data["description"] = snapshotDescription
+		}
+		return output.PrintSuccess(fmt.Sprintf("Snapshot '%s' created successfully", snapName), data)
 	},
 }
 
 var snapshotDelCmd = &cobra.Command{
-	Use:   "del <vmid>",
-	Short: "Delete a snapshot of a VM or container",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Use:           "del <vmid>",
+	Short:         "Delete a snapshot of a VM or container",
 	Long: `Delete a snapshot of a VM or container by name.
 
 Example:
@@ -159,28 +105,7 @@ Example:
 
 		// Require snapshot name
 		if snapshotName == "" {
-			outputFormat := config.GetOutputFormat()
-			switch outputFormat {
-			case config.OutputFormatJSON:
-				errorOutput := map[string]interface{}{
-					"error":  "--name flag is required",
-					"vmid":   vmid,
-					"status": "failed",
-				}
-				b, _ := json.MarshalIndent(errorOutput, "", "  ")
-				fmt.Println(string(b))
-			case config.OutputFormatYAML:
-				errorOutput := map[string]interface{}{
-					"error":  "--name flag is required",
-					"vmid":   vmid,
-					"status": "failed",
-				}
-				b, _ := yaml.Marshal(errorOutput)
-				fmt.Print(string(b))
-			case config.OutputFormatText:
-				fmt.Println("Error: --name flag is required")
-			}
-			os.Exit(1)
+			return fmt.Errorf("--name flag is required")
 		}
 
 		// Load configuration
@@ -198,75 +123,19 @@ Example:
 
 		// Delete snapshot
 		taskID, err := client.DeleteSnapshot(node, vmid, instanceType, snapshotName)
-
-		// Get output format before handling error
-		outputFormat := config.GetOutputFormat()
-
 		if err != nil {
-			// Format error according to output format
-			switch outputFormat {
-			case config.OutputFormatJSON:
-				errorOutput := map[string]interface{}{
-					"error":  err.Error(),
-					"vmid":   vmid,
-					"status": "failed",
-				}
-				b, _ := json.MarshalIndent(errorOutput, "", "  ")
-				fmt.Println(string(b))
-			case config.OutputFormatYAML:
-				errorOutput := map[string]interface{}{
-					"error":  err.Error(),
-					"vmid":   vmid,
-					"status": "failed",
-				}
-				b, _ := yaml.Marshal(errorOutput)
-				fmt.Print(string(b))
-			case config.OutputFormatText:
-				fmt.Printf("Error: %s\n", err.Error())
-			}
-			os.Exit(1)
+			return err
 		}
 
-		// Output based on configured format
-		switch outputFormat {
-		case config.OutputFormatJSON:
-			output := map[string]interface{}{
-				"vmid":     vmid,
-				"node":     node,
-				"type":     instanceType,
-				"snapshot": snapshotName,
-				"task_id":  taskID,
-				"status":   "deleted",
-			}
-			b, err := json.MarshalIndent(output, "", "  ")
-			if err != nil {
-				return fmt.Errorf("marshal json: %w", err)
-			}
-			fmt.Println(string(b))
-
-		case config.OutputFormatYAML:
-			output := map[string]interface{}{
-				"vmid":     vmid,
-				"node":     node,
-				"type":     instanceType,
-				"snapshot": snapshotName,
-				"task_id":  taskID,
-				"status":   "deleted",
-			}
-			b, err := yaml.Marshal(output)
-			if err != nil {
-				return fmt.Errorf("marshal yaml: %w", err)
-			}
-			fmt.Print(string(b))
-
-		case config.OutputFormatText:
-			fmt.Printf("Snapshot '%s' deleted successfully\n", snapshotName)
-			if taskID != "" {
-				fmt.Printf("Task ID: %s\n", taskID)
-			}
+		// Output using output package
+		data := map[string]interface{}{
+			"vmid":     vmid,
+			"node":     node,
+			"type":     instanceType,
+			"snapshot": snapshotName,
+			"task_id":  taskID,
 		}
-
-		return nil
+		return output.PrintSuccess(fmt.Sprintf("Snapshot '%s' deleted successfully", snapshotName), data)
 	},
 }
 

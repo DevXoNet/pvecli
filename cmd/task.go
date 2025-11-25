@@ -15,16 +15,15 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	"pvecli/config"
+	"pvecli/internal/output"
 	"pvecli/internal/proxmox"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -41,9 +40,11 @@ var taskCmd = &cobra.Command{
 }
 
 var taskListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List recent tasks",
-	Long:  "List recent tasks from all nodes or a specific node",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Use:           "list",
+	Short:         "List recent tasks",
+	Long:          "List recent tasks from all nodes or a specific node",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadConfig()
 		if err != nil {
@@ -92,46 +93,18 @@ var taskListCmd = &cobra.Command{
 			}
 		}
 
-		// Output based on configured format
-		outputFormat := config.GetOutputFormat()
-
-		switch outputFormat {
-		case config.OutputFormatJSON:
-			b, err := json.MarshalIndent(allTasks, "", "  ")
-			if err != nil {
-				return fmt.Errorf("marshal json: %w", err)
-			}
-			fmt.Println(string(b))
-
-		case config.OutputFormatYAML:
-			b, err := yaml.Marshal(allTasks)
-			if err != nil {
-				return fmt.Errorf("marshal yaml: %w", err)
-			}
-			fmt.Print(string(b))
-
-		case config.OutputFormatText:
-			for _, task := range allTasks {
-				upid := task["upid"]
-				taskType := task["type"]
-				status := task["status"]
-				node := task["node"]
-				user := task["user"]
-				
-				fmt.Printf("%-50s | %-10s | %-10s | %-10s | %s\n", 
-					upid, taskType, status, node, user)
-			}
-		}
-
-		return nil
+		// Output using output package
+		return output.Print(allTasks)
 	},
 }
 
 var taskStatusCmd = &cobra.Command{
-	Use:   "status <upid>",
-	Short: "Get task status",
-	Long:  "Get the current status of a task by its UPID",
-	Args:  cobra.ExactArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Use:           "status <upid>",
+	Short:         "Get task status",
+	Long:          "Get the current status of a task by its UPID",
+	Args:          cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		upid := args[0]
 
@@ -153,47 +126,18 @@ var taskStatusCmd = &cobra.Command{
 			return fmt.Errorf("failed to get task status: %w", err)
 		}
 
-		// Output based on configured format
-		outputFormat := config.GetOutputFormat()
-
-		switch outputFormat {
-		case config.OutputFormatJSON:
-			b, err := json.MarshalIndent(status, "", "  ")
-			if err != nil {
-				return fmt.Errorf("marshal json: %w", err)
-			}
-			fmt.Println(string(b))
-
-		case config.OutputFormatYAML:
-			b, err := yaml.Marshal(status)
-			if err != nil {
-				return fmt.Errorf("marshal yaml: %w", err)
-			}
-			fmt.Print(string(b))
-
-		case config.OutputFormatText:
-			fmt.Printf("Task: %s\n", upid)
-			fmt.Printf("Status: %s\n", status["status"])
-			if exitStatus, ok := status["exitstatus"]; ok && exitStatus != nil {
-				fmt.Printf("Exit Status: %s\n", exitStatus)
-			}
-			if startTime, ok := status["starttime"]; ok && startTime != nil {
-				fmt.Printf("Start Time: %v\n", startTime)
-			}
-			if endTime, ok := status["endtime"]; ok && endTime != nil {
-				fmt.Printf("End Time: %v\n", endTime)
-			}
-		}
-
-		return nil
+		// Output using output package
+		return output.Print(status)
 	},
 }
 
 var taskLogCmd = &cobra.Command{
-	Use:   "log <upid>",
-	Short: "Get task log",
-	Long:  "Get the log output of a task",
-	Args:  cobra.ExactArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Use:           "log <upid>",
+	Short:         "Get task log",
+	Long:          "Get the log output of a task",
+	Args:          cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		upid := args[0]
 
@@ -215,47 +159,22 @@ var taskLogCmd = &cobra.Command{
 			return fmt.Errorf("failed to get task log: %w", err)
 		}
 
-		// Output based on configured format
-		outputFormat := config.GetOutputFormat()
-
-		switch outputFormat {
-		case config.OutputFormatJSON:
-			output := map[string]interface{}{
-				"upid": upid,
-				"log":  log,
-			}
-			b, err := json.MarshalIndent(output, "", "  ")
-			if err != nil {
-				return fmt.Errorf("marshal json: %w", err)
-			}
-			fmt.Println(string(b))
-
-		case config.OutputFormatYAML:
-			output := map[string]interface{}{
-				"upid": upid,
-				"log":  log,
-			}
-			b, err := yaml.Marshal(output)
-			if err != nil {
-				return fmt.Errorf("marshal yaml: %w", err)
-			}
-			fmt.Print(string(b))
-
-		case config.OutputFormatText:
-			for _, line := range log {
-				fmt.Println(line)
-			}
+		// Output using output package
+		data := map[string]interface{}{
+			"upid": upid,
+			"log":  log,
 		}
-
-		return nil
+		return output.Print(data)
 	},
 }
 
 var taskWaitCmd = &cobra.Command{
-	Use:   "wait <upid>",
-	Short: "Wait for task completion",
-	Long:  "Wait for a task to complete and return its final status",
-	Args:  cobra.ExactArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Use:           "wait <upid>",
+	Short:         "Wait for task completion",
+	Long:          "Wait for a task to complete and return its final status",
+	Args:          cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		upid := args[0]
 
@@ -284,42 +203,24 @@ var taskWaitCmd = &cobra.Command{
 			}
 
 			if taskStatus == "stopped" {
-				// Task completed
-				outputFormat := config.GetOutputFormat()
-
-				switch outputFormat {
-				case config.OutputFormatJSON:
-					b, err := json.MarshalIndent(status, "", "  ")
-					if err != nil {
-						return fmt.Errorf("marshal json: %w", err)
-					}
-					fmt.Println(string(b))
-
-				case config.OutputFormatYAML:
-					b, err := yaml.Marshal(status)
-					if err != nil {
-						return fmt.Errorf("marshal yaml: %w", err)
-					}
-					fmt.Print(string(b))
-
-				case config.OutputFormatText:
-					exitStatus := "unknown"
-					if es, ok := status["exitstatus"].(string); ok {
-						exitStatus = es
-					}
-					if exitStatus == "OK" {
-						fmt.Printf("Task completed successfully\n")
-					} else {
-						fmt.Printf("Task failed with exit status: %s\n", exitStatus)
-					}
+				// Task completed - check exit status
+				exitStatus := "unknown"
+				if es, ok := status["exitstatus"].(string); ok {
+					exitStatus = es
 				}
 
-				// Return error if task failed
-				if exitStatus, ok := status["exitstatus"].(string); ok && exitStatus != "OK" {
+				if exitStatus == "OK" {
+					// Success
+					data := map[string]interface{}{
+						"upid":   upid,
+						"status": status,
+					}
+					return output.PrintSuccess("Task completed successfully", data)
+				} else {
+					// Failed - output status and return error
+					output.Print(status)
 					return fmt.Errorf("task failed with exit status: %s", exitStatus)
 				}
-
-				return nil
 			}
 
 			// Wait before checking again

@@ -15,20 +15,21 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"pvecli/config"
+	"pvecli/internal/output"
 	"pvecli/internal/proxmox"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var rebootCmd = &cobra.Command{
-	Use:   "reboot <vmid>",
-	Short: "Reboot VM or container",
-	Args:  cobra.ExactArgs(1),
+	Use:           "reboot <vmid>",
+	Short:         "Reboot VM or container",
+	Args:          cobra.ExactArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vmid := args[0]
 
@@ -50,37 +51,12 @@ var rebootCmd = &cobra.Command{
 			return fmt.Errorf("failed to reboot: %w", err)
 		}
 
-		// Output based on configured format
-		outputFormat := config.GetOutputFormat()
-
-		switch outputFormat {
-		case config.OutputFormatJSON:
-			output := map[string]interface{}{
-				"vmid":   vmid,
-				"node":   node,
-				"type":   instanceType,
-				"action": "reboot",
-				"status": "success",
-			}
-			b, _ := json.MarshalIndent(output, "", "  ")
-			fmt.Println(string(b))
-
-		case config.OutputFormatYAML:
-			output := map[string]interface{}{
-				"vmid":   vmid,
-				"node":   node,
-				"type":   instanceType,
-				"action": "reboot",
-				"status": "success",
-			}
-			b, _ := yaml.Marshal(output)
-			fmt.Print(string(b))
-
-		case config.OutputFormatText:
-			fmt.Printf("Instance %s rebooted successfully\n", vmid)
-		}
-
-		return nil
+		return output.PrintSuccess(fmt.Sprintf("Instance %s rebooted successfully", vmid), map[string]interface{}{
+			"vmid":   vmid,
+			"node":   node,
+			"type":   instanceType,
+			"action": "reboot",
+		})
 	},
 }
 

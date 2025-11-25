@@ -15,14 +15,13 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"pvecli/config"
+	"pvecli/internal/output"
 	"pvecli/internal/proxmox"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -30,9 +29,11 @@ var (
 )
 
 var shutdownCmd = &cobra.Command{
-	Use:   "shutdown <vmid>",
-	Short: "Shutdown VM or container gracefully",
-	Args:  cobra.ExactArgs(1),
+	Use:           "shutdown <vmid>",
+	Short:         "Shutdown VM or container gracefully",
+	Args:          cobra.ExactArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vmid := args[0]
 
@@ -54,43 +55,18 @@ var shutdownCmd = &cobra.Command{
 			return fmt.Errorf("failed to shutdown: %w", err)
 		}
 
-		// Output based on configured format
-		outputFormat := config.GetOutputFormat()
-
-		switch outputFormat {
-		case config.OutputFormatJSON:
-			output := map[string]interface{}{
-				"vmid":   vmid,
-				"node":   node,
-				"type":   instanceType,
-				"action": "shutdown",
-				"force":  shutdownForce,
-				"status": "success",
-			}
-			b, _ := json.MarshalIndent(output, "", "  ")
-			fmt.Println(string(b))
-
-		case config.OutputFormatYAML:
-			output := map[string]interface{}{
-				"vmid":   vmid,
-				"node":   node,
-				"type":   instanceType,
-				"action": "shutdown",
-				"force":  shutdownForce,
-				"status": "success",
-			}
-			b, _ := yaml.Marshal(output)
-			fmt.Print(string(b))
-
-		case config.OutputFormatText:
-			if shutdownForce {
-				fmt.Printf("Instance %s forcefully shutdown\n", vmid)
-			} else {
-				fmt.Printf("Instance %s shutdown gracefully\n", vmid)
-			}
+		msg := fmt.Sprintf("Instance %s shutdown gracefully", vmid)
+		if shutdownForce {
+			msg = fmt.Sprintf("Instance %s forcefully shutdown", vmid)
 		}
 
-		return nil
+		return output.PrintSuccess(msg, map[string]interface{}{
+			"vmid":   vmid,
+			"node":   node,
+			"type":   instanceType,
+			"action": "shutdown",
+			"force":  shutdownForce,
+		})
 	},
 }
 
