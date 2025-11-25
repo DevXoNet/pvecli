@@ -70,11 +70,11 @@ type ClusterConfig struct {
 
 // Config holds the main configuration with multiple environments
 type Config struct {
-	Environments   map[string]*ClusterConfig `yaml:"environments"`
-	DefaultEnv     string                    `yaml:"default_env"`
-	OutputFormat   OutputFormat              `yaml:"output_format"`
-	Debug          bool                      `yaml:"debug"`
-	
+	Environments map[string]*ClusterConfig `yaml:"environments"`
+	DefaultEnv   string                    `yaml:"default_env"`
+	OutputFormat OutputFormat              `yaml:"output_format"`
+	Debug        bool                      `yaml:"debug"`
+
 	// Legacy fields for backward compatibility
 	APIURL             string `yaml:"api_url,omitempty"`
 	TokenID            string `yaml:"token_id,omitempty"`
@@ -215,13 +215,13 @@ func GetCurrentCluster() (*ClusterConfig, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config not loaded")
 	}
-	
+
 	env := GetCurrentEnvironment()
 	cluster, ok := cfg.Environments[env]
 	if !ok {
 		return nil, fmt.Errorf("environment '%s' not found in config", env)
 	}
-	
+
 	return cluster, nil
 }
 
@@ -230,7 +230,7 @@ func GetEnvironments() []string {
 	if cfg == nil {
 		return nil
 	}
-	
+
 	envs := make([]string, 0, len(cfg.Environments))
 	for env := range cfg.Environments {
 		envs = append(envs, env)

@@ -17,9 +17,9 @@ package vm
 import (
 	"fmt"
 
+	"pvecli/config"
 	"pvecli/internal/output"
 	"pvecli/internal/pve"
-	"pvecli/config"
 
 	"github.com/spf13/cobra"
 )
@@ -63,4 +63,3 @@ var templateCmd = &cobra.Command{
 		})
 	},
 }
-

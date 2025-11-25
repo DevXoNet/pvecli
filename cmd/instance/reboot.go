@@ -59,4 +59,3 @@ var rebootCmd = &cobra.Command{
 		})
 	},
 }
-

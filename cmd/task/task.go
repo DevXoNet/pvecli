@@ -239,8 +239,7 @@ func parseUPIDNode(upid string) (string, error) {
 	return parts[1], nil
 }
 
-
 // Init registers all task commands
 func Init(root *cobra.Command) {
-root.AddCommand(taskCmd)
+	root.AddCommand(taskCmd)
 }

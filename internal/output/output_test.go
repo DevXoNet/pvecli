@@ -60,7 +60,7 @@ func TestPrintText(t *testing.T) {
 
 func TestPrintError(t *testing.T) {
 	err := fmt.Errorf("test error")
-	
+
 	// Should not panic
 	PrintError(err)
 }

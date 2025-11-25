@@ -23,11 +23,11 @@ func TestStoragePackage(t *testing.T) {
 	if backupCmd == nil {
 		t.Error("backupCmd should not be nil")
 	}
-	
+
 	if backupListCmd == nil {
 		t.Error("backupListCmd should not be nil")
 	}
-	
+
 	if backupDeleteCmd == nil {
 		t.Error("backupDeleteCmd should not be nil")
 	}

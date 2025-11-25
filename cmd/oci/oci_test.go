@@ -23,12 +23,12 @@ func TestOCIPackage(t *testing.T) {
 	if ociCmd == nil {
 		t.Error("ociCmd should not be nil")
 	}
-	
+
 	// Test OCI command name
 	if ociCmd.Use != "oci" {
 		t.Errorf("Expected ociCmd.Use to be 'oci', got '%s'", ociCmd.Use)
 	}
-	
+
 	// Test that subcommands exist
 	if ociTagsCmd == nil {
 		t.Error("ociTagsCmd should not be nil")

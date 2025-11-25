@@ -71,4 +71,3 @@ var statusCmd = &cobra.Command{
 		return output.Print(data)
 	},
 }
-

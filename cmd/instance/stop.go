@@ -45,7 +45,7 @@ var stopCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		
+
 		// Output success message
 		data := map[string]interface{}{
 			"vmid": vmid,
@@ -55,4 +55,3 @@ var stopCmd = &cobra.Command{
 		return output.PrintSuccess(fmt.Sprintf("VM/CT %s stopped successfully", vmid), data)
 	},
 }
-

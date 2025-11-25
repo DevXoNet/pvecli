@@ -124,7 +124,7 @@ The command will:
 
 		// Use channels for parallel execution
 		resultsChan := make(chan nodeUpdate, len(nodes))
-		
+
 		for _, node := range nodes {
 			go func(n pve.Node) {
 				result := nodeUpdate{
@@ -168,7 +168,7 @@ The command will:
 		for i := 0; i < len(nodes); i++ {
 			result := <-resultsChan
 			nodeUpdates = append(nodeUpdates, result)
-			
+
 			if outputFormat == config.OutputFormatText {
 				if result.err != nil {
 					fmt.Printf("  → %s (%s)... ✗ %v\n", result.name, result.ip, result.err)
@@ -332,7 +332,7 @@ The command will:
 			fmt.Println("\n═══════════════════════════════════════")
 			fmt.Println("Applying updates...")
 			fmt.Println("═══════════════════════════════════════")
-		fmt.Println()
+			fmt.Println()
 		}
 
 		successCount := 0

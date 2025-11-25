@@ -98,19 +98,19 @@ func GetDefaultSSHKeyPath() string {
 	if err != nil {
 		return ""
 	}
-	
+
 	// Try common SSH key locations
 	keys := []string{
 		filepath.Join(home, ".ssh", "id_rsa"),
 		filepath.Join(home, ".ssh", "id_ed25519"),
 		filepath.Join(home, ".ssh", "id_ecdsa"),
 	}
-	
+
 	for _, key := range keys {
 		if _, err := os.Stat(key); err == nil {
 			return key
 		}
 	}
-	
+
 	return filepath.Join(home, ".ssh", "id_rsa")
 }

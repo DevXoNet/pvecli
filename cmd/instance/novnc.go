@@ -141,11 +141,11 @@ Examples:
 			if instanceType == "lxc" {
 				instanceName = "Container"
 			}
-			
+
 			fmt.Printf("Found %s %s on node %s (%s)\n", instanceName, vmid, node, nodeIP)
 			fmt.Printf("Opening terminal console via SSH...\n")
 			fmt.Printf("\n")
-			
+
 			// Fixed width box - 60 characters
 			fmt.Printf("╔══════════════════════════════════════════════════════════╗\n")
 			fmt.Printf("║  HOW TO EXIT:                                            ║\n")

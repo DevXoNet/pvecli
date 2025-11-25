@@ -419,60 +419,60 @@ var clusterCmd = &cobra.Command{
 		}
 
 		// Use map to avoid duplicates (shared storage appears once per node)
-	mountedStorageMap := make(map[string]mountedStorage)
+		mountedStorageMap := make(map[string]mountedStorage)
 
-	for _, resource := range clusterResources {
-		resMap, ok := resource.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		if resMap["type"] != "storage" || resMap["plugintype"] == nil {
-			continue
-		}
-
-		plugintype := resMap["plugintype"].(string)
-		storageName := ""
-		if resMap["storage"] != nil {
-			storageName = resMap["storage"].(string)
-		}
-
-		// Check for PBS, NFS, ZFS, Ceph
-		if plugintype == "pbs" || plugintype == "nfs" || plugintype == "zfspool" || plugintype == "rbd" {
-			// Skip if already added
-			if _, exists := mountedStorageMap[storageName]; exists {
+		for _, resource := range clusterResources {
+			resMap, ok := resource.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if resMap["type"] != "storage" || resMap["plugintype"] == nil {
 				continue
 			}
 
-			var used, total float64
-			if resMap["disk"] != nil {
-				used = resMap["disk"].(float64)
-			}
-			if resMap["maxdisk"] != nil {
-				total = resMap["maxdisk"].(float64)
+			plugintype := resMap["plugintype"].(string)
+			storageName := ""
+			if resMap["storage"] != nil {
+				storageName = resMap["storage"].(string)
 			}
 
-			if total > 0 {
-				typeLabel := ""
-				switch plugintype {
-				case "pbs":
-					typeLabel = "Proxmox Backup"
-				case "nfs":
-					typeLabel = "NFS"
-				case "zfspool":
-					typeLabel = "ZFS"
-				case "rbd":
-					typeLabel = "Ceph RBD"
+			// Check for PBS, NFS, ZFS, Ceph
+			if plugintype == "pbs" || plugintype == "nfs" || plugintype == "zfspool" || plugintype == "rbd" {
+				// Skip if already added
+				if _, exists := mountedStorageMap[storageName]; exists {
+					continue
 				}
 
-				mountedStorageMap[storageName] = mountedStorage{
-					storageType: typeLabel,
-					name:        storageName,
-					used:        used,
-					total:       total,
+				var used, total float64
+				if resMap["disk"] != nil {
+					used = resMap["disk"].(float64)
+				}
+				if resMap["maxdisk"] != nil {
+					total = resMap["maxdisk"].(float64)
+				}
+
+				if total > 0 {
+					typeLabel := ""
+					switch plugintype {
+					case "pbs":
+						typeLabel = "Proxmox Backup"
+					case "nfs":
+						typeLabel = "NFS"
+					case "zfspool":
+						typeLabel = "ZFS"
+					case "rbd":
+						typeLabel = "Ceph RBD"
+					}
+
+					mountedStorageMap[storageName] = mountedStorage{
+						storageType: typeLabel,
+						name:        storageName,
+						used:        used,
+						total:       total,
+					}
 				}
 			}
 		}
-	}
 
 		// Convert map to slice for display
 		var mountedStorages []mountedStorage
@@ -530,8 +530,7 @@ var clusterCmd = &cobra.Command{
 	},
 }
 
-
 // Init registers all cluster commands
 func Init(root *cobra.Command) {
-root.AddCommand(clusterCmd)
+	root.AddCommand(clusterCmd)
 }

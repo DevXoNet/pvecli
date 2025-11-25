@@ -35,11 +35,11 @@ Some commands (like exec) may be disabled by default for security reasons.`,
 
 // agent ping
 var agentPingCmd = &cobra.Command{
-	Use:   "ping <vmid>",
-	Short: "Ping the guest agent",
-	Long:  "Check if the QEMU Guest Agent is running and responding",
-	Args:  cobra.ExactArgs(1),
-	SilenceUsage: true,
+	Use:           "ping <vmid>",
+	Short:         "Ping the guest agent",
+	Long:          "Check if the QEMU Guest Agent is running and responding",
+	Args:          cobra.ExactArgs(1),
+	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadConfig()
@@ -72,18 +72,18 @@ var agentPingCmd = &cobra.Command{
 			"vmid":   vmid,
 			"status": "agent is running",
 		}
-		
+
 		return output.Print(data)
 	},
 }
 
 // agent network
 var agentNetworkCmd = &cobra.Command{
-	Use:   "network <vmid>",
-	Short: "Get network interfaces information",
-	Long:  "Retrieve network interfaces, IP addresses, and MAC addresses from the guest",
-	Args:  cobra.ExactArgs(1),
-	SilenceUsage: true,
+	Use:           "network <vmid>",
+	Short:         "Get network interfaces information",
+	Long:          "Retrieve network interfaces, IP addresses, and MAC addresses from the guest",
+	Args:          cobra.ExactArgs(1),
+	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadConfig()
@@ -116,11 +116,11 @@ var agentNetworkCmd = &cobra.Command{
 
 // agent osinfo
 var agentOSInfoCmd = &cobra.Command{
-	Use:   "osinfo <vmid>",
-	Short: "Get operating system information",
-	Long:  "Retrieve OS name, version, kernel version, and architecture from the guest",
-	Args:  cobra.ExactArgs(1),
-	SilenceUsage: true,
+	Use:           "osinfo <vmid>",
+	Short:         "Get operating system information",
+	Long:          "Retrieve OS name, version, kernel version, and architecture from the guest",
+	Args:          cobra.ExactArgs(1),
+	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadConfig()
@@ -169,7 +169,7 @@ Linux (RHEL/CentOS/AlmaLinux):
   Edit /etc/sysconfig/qemu-ga
   Add 'guest-exec' and 'guest-exec-status' to FILTER_RPC_ARGS (--allow-rpcs)
   Restart: systemctl restart qemu-guest-agent`,
-	Args: cobra.MinimumNArgs(2),
+	Args:         cobra.MinimumNArgs(2),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadConfig()
@@ -203,11 +203,11 @@ Linux (RHEL/CentOS/AlmaLinux):
 
 // agent fsinfo
 var agentFSInfoCmd = &cobra.Command{
-	Use:   "fsinfo <vmid>",
-	Short: "Get filesystem information",
-	Long:  "Retrieve filesystem information including mount points, disk usage, and filesystem types",
-	Args:  cobra.ExactArgs(1),
-	SilenceUsage: true,
+	Use:           "fsinfo <vmid>",
+	Short:         "Get filesystem information",
+	Long:          "Retrieve filesystem information including mount points, disk usage, and filesystem types",
+	Args:          cobra.ExactArgs(1),
+	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadConfig()
@@ -238,8 +238,7 @@ var agentFSInfoCmd = &cobra.Command{
 	},
 }
 
-
 // Init registers all agent commands
 func Init(root *cobra.Command) {
-root.AddCommand(agentCmd)
+	root.AddCommand(agentCmd)
 }

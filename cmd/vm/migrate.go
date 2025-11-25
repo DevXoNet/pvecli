@@ -75,7 +75,7 @@ var migrateCmd = &cobra.Command{
 			if err := client.WaitForTask(node, taskID, migrateTimeout); err != nil {
 				return fmt.Errorf("migration failed: %w", err)
 			}
-			
+
 			// Output success
 			data := map[string]interface{}{
 				"vmid":        id,
@@ -100,4 +100,3 @@ var migrateCmd = &cobra.Command{
 		}
 	},
 }
-

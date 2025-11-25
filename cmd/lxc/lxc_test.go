@@ -23,12 +23,12 @@ func TestLXCPackage(t *testing.T) {
 	if lxcCmd == nil {
 		t.Error("lxcCmd should not be nil")
 	}
-	
+
 	// Test LXC command name
 	if lxcCmd.Use != "lxc" {
 		t.Errorf("Expected lxcCmd.Use to be 'lxc', got '%s'", lxcCmd.Use)
 	}
-	
+
 	// Test that templates command exists
 	if lxcTemplatesCmd == nil {
 		t.Error("lxcTemplatesCmd should not be nil")

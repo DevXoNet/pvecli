@@ -29,7 +29,7 @@ func TestMonitoringPackage(t *testing.T) {
 	if topCmd == nil {
 		t.Error("topCmd should not be nil")
 	}
-	
+
 	if listCmd == nil {
 		t.Error("listCmd should not be nil")
 	}

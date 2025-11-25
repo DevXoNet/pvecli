@@ -23,12 +23,12 @@ func TestVMPackage(t *testing.T) {
 	if vmCmd == nil {
 		t.Error("vmCmd should not be nil")
 	}
-	
+
 	// Test VM command name
 	if vmCmd.Use != "vm" {
 		t.Errorf("Expected vmCmd.Use to be 'vm', got '%s'", vmCmd.Use)
 	}
-	
+
 	// Test that subcommands exist
 	if cloneCmd == nil {
 		t.Error("cloneCmd should not be nil")

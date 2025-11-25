@@ -41,9 +41,9 @@ func TestInstancePackage(t *testing.T) {
 // Test command names
 func TestCommandNames(t *testing.T) {
 	tests := []struct {
-		name    string
-		cmd     string
-		want    string
+		name string
+		cmd  string
+		want string
 	}{
 		{"Start command", startCmd.Use, "start <vmid/ctid>"},
 		{"Stop command", stopCmd.Use, "stop <vmid/ctid>"},

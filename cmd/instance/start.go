@@ -47,7 +47,7 @@ var startCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		
+
 		// Output success message
 		data := map[string]interface{}{
 			"vmid": vmid,
@@ -57,4 +57,3 @@ var startCmd = &cobra.Command{
 		return output.PrintSuccess(fmt.Sprintf("VM/CT %s started successfully", vmid), data)
 	},
 }
-

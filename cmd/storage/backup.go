@@ -180,14 +180,13 @@ var backupDeleteCmd = &cobra.Command{
 	},
 }
 
-
 func init() {
 	backupCmd.AddCommand(backupListCmd)
 	backupCmd.AddCommand(backupDeleteCmd)
-	
+
 	backupListCmd.Flags().StringVarP(&backupStorage, "storage", "s", "", "Storage name or type (pbs/nfs)")
 	backupListCmd.Flags().StringVarP(&backupVMID, "vmid", "v", "", "Filter by VMID")
-	
+
 	backupDeleteCmd.Flags().StringVarP(&backupStorage, "storage", "s", "", "Storage name where backup is located")
 }
 

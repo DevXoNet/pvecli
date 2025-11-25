@@ -32,4 +32,3 @@ func (c *Client) QueryOCIRepoTags(node, repository string) ([]string, error) {
 	err := c.doRequest("GET", path, &out)
 	return out.Data, err
 }
-

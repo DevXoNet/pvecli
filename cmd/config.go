@@ -68,7 +68,7 @@ func runConfigList(cmd *cobra.Command, args []string) error {
 
 	fmt.Println("=== Configured Environments ===")
 	fmt.Println()
-	
+
 	if len(cfg.Environments) == 0 {
 		fmt.Println("No environments configured.")
 		fmt.Println("Run 'pvecli config' to add an environment.")
@@ -88,7 +88,7 @@ func runConfigList(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Default environment: %s\n", cfg.DefaultEnv)
 	fmt.Printf("Output format: %s\n", cfg.OutputFormat)
-	
+
 	return nil
 }
 
@@ -215,7 +215,7 @@ func runConfig(cmd *cobra.Command, args []string) error {
 	fmt.Print("API URL (IP or hostname, e.g. 192.168.1.10 or pve.example.com): ")
 	apiInput, _ := reader.ReadString('\n')
 	apiInput = strings.TrimSpace(apiInput)
-	
+
 	// Auto-format API URL
 	if !strings.HasPrefix(apiInput, "http://") && !strings.HasPrefix(apiInput, "https://") {
 		// Remove any trailing slashes or paths
@@ -246,7 +246,7 @@ func runConfig(cmd *cobra.Command, args []string) error {
 
 	// SSH settings (optional)
 	fmt.Println("\n--- SSH Settings (optional, for cluster update command) ---")
-	
+
 	fmt.Print("SSH User (default: root): ")
 	sshUser, _ := reader.ReadString('\n')
 	sshUser = strings.TrimSpace(sshUser)
@@ -317,6 +317,6 @@ func runConfig(cmd *cobra.Command, args []string) error {
 	if cfg.DefaultEnv == envName {
 		fmt.Println("Or simply: pvecli <command> (default environment)")
 	}
-	
+
 	return nil
 }

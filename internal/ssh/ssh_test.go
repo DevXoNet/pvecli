@@ -22,16 +22,16 @@ import (
 
 func TestGetDefaultSSHKeyPath(t *testing.T) {
 	keyPath := GetDefaultSSHKeyPath()
-	
+
 	if keyPath == "" {
 		t.Error("GetDefaultSSHKeyPath returned empty string")
 	}
-	
+
 	// Should contain .ssh directory
 	if !filepath.IsAbs(keyPath) {
 		t.Errorf("Expected absolute path, got: %s", keyPath)
 	}
-	
+
 	// Should end with a key name
 	base := filepath.Base(keyPath)
 	validKeys := []string{"id_rsa", "id_ed25519", "id_ecdsa"}
@@ -42,7 +42,7 @@ func TestGetDefaultSSHKeyPath(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if !found {
 		t.Errorf("Expected key name to be one of %v, got: %s", validKeys, base)
 	}
@@ -56,21 +56,21 @@ func TestGetDefaultSSHKeyPath_WithExistingKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create .ssh directory: %v", err)
 	}
-	
+
 	// Create a test key file
 	keyFile := filepath.Join(sshDir, "id_rsa")
 	err = os.WriteFile(keyFile, []byte("test-key-content"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to create test key: %v", err)
 	}
-	
+
 	// Temporarily override HOME
 	originalHome := os.Getenv("HOME")
 	os.Setenv("HOME", tempDir)
 	defer os.Setenv("HOME", originalHome)
-	
+
 	keyPath := GetDefaultSSHKeyPath()
-	
+
 	if keyPath != keyFile {
 		t.Errorf("Expected key path %s, got %s", keyFile, keyPath)
 	}
@@ -84,7 +84,7 @@ func TestGetDefaultSSHKeyPath_PreferenceOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create .ssh directory: %v", err)
 	}
-	
+
 	// Create multiple key files
 	keys := []string{"id_rsa", "id_ed25519", "id_ecdsa"}
 	for _, key := range keys {
@@ -94,14 +94,14 @@ func TestGetDefaultSSHKeyPath_PreferenceOrder(t *testing.T) {
 			t.Fatalf("Failed to create test key %s: %v", key, err)
 		}
 	}
-	
+
 	// Temporarily override HOME
 	originalHome := os.Getenv("HOME")
 	os.Setenv("HOME", tempDir)
 	defer os.Setenv("HOME", originalHome)
-	
+
 	keyPath := GetDefaultSSHKeyPath()
-	
+
 	// Should prefer id_rsa (first in the list)
 	expectedPath := filepath.Join(sshDir, "id_rsa")
 	if keyPath != expectedPath {
@@ -112,11 +112,11 @@ func TestGetDefaultSSHKeyPath_PreferenceOrder(t *testing.T) {
 func TestNewClient_NoAuthMethods(t *testing.T) {
 	// Try to create client with non-existent key
 	_, err := NewClient("localhost", "testuser", "/nonexistent/key", 22)
-	
+
 	if err == nil {
 		t.Error("Expected error when no auth methods available, got nil")
 	}
-	
+
 	if err != nil && err.Error() == "" {
 		t.Error("Expected non-empty error message")
 	}
@@ -130,10 +130,10 @@ func TestNewClient_InvalidKeyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create invalid key: %v", err)
 	}
-	
+
 	// Try to create client with invalid key
 	_, err = NewClient("localhost", "testuser", invalidKey, 22)
-	
+
 	if err == nil {
 		t.Error("Expected error with invalid key, got nil")
 	}
@@ -145,7 +145,7 @@ func TestClient_Structure(t *testing.T) {
 		client: nil,
 		host:   "test.example.com",
 	}
-	
+
 	if client.host != "test.example.com" {
 		t.Errorf("Expected host 'test.example.com', got '%s'", client.host)
 	}

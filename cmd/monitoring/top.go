@@ -101,7 +101,7 @@ var topCmd = &cobra.Command{
 
 				// Extract stats directly from resource
 				stats := vmStats{}
-				
+
 				if vmid, ok := resMap["vmid"].(float64); ok {
 					stats.VMID = int(vmid)
 				}
@@ -170,23 +170,23 @@ var topCmd = &cobra.Command{
 }
 
 type vmStats struct {
-	VMID      int
-	Name      string
-	Node      string
-	Type      string
-	Status    string
-	CPUUsage  float64
-	CPUCores  int
-	MemUsage  uint64
-	MemTotal  uint64
-	DiskRead  uint64  // Total bytes read
-	DiskWrite uint64  // Total bytes written
-	NetIn     uint64  // Total bytes in
-	NetOut    uint64  // Total bytes out
-	DiskReadRate  uint64  // Bytes per second
-	DiskWriteRate uint64  // Bytes per second
-	NetInRate     uint64  // Bytes per second
-	NetOutRate    uint64  // Bytes per second
+	VMID          int
+	Name          string
+	Node          string
+	Type          string
+	Status        string
+	CPUUsage      float64
+	CPUCores      int
+	MemUsage      uint64
+	MemTotal      uint64
+	DiskRead      uint64 // Total bytes read
+	DiskWrite     uint64 // Total bytes written
+	NetIn         uint64 // Total bytes in
+	NetOut        uint64 // Total bytes out
+	DiskReadRate  uint64 // Bytes per second
+	DiskWriteRate uint64 // Bytes per second
+	NetInRate     uint64 // Bytes per second
+	NetOutRate    uint64 // Bytes per second
 }
 
 func getVMStats(client *pve.Client, node string, vmid int, vmType string) (vmStats, error) {
@@ -248,33 +248,33 @@ func calculateRates(stats []vmStats) {
 	for i := range stats {
 		// Create unique key for this VM/CT
 		key := fmt.Sprintf("%s-%d", stats[i].Node, stats[i].VMID)
-		
+
 		// Check if we have previous stats
 		if prev, exists := previousStats[key]; exists && stats[i].Status == "running" {
 			// Calculate rates (bytes per refresh interval, then convert to per second)
 			timeDelta := float64(topRefreshInterval)
-			
+
 			// Disk read rate
 			if stats[i].DiskRead >= prev.DiskRead {
 				stats[i].DiskReadRate = uint64(float64(stats[i].DiskRead-prev.DiskRead) / timeDelta)
 			}
-			
+
 			// Disk write rate
 			if stats[i].DiskWrite >= prev.DiskWrite {
 				stats[i].DiskWriteRate = uint64(float64(stats[i].DiskWrite-prev.DiskWrite) / timeDelta)
 			}
-			
+
 			// Network in rate
 			if stats[i].NetIn >= prev.NetIn {
 				stats[i].NetInRate = uint64(float64(stats[i].NetIn-prev.NetIn) / timeDelta)
 			}
-			
+
 			// Network out rate
 			if stats[i].NetOut >= prev.NetOut {
 				stats[i].NetOutRate = uint64(float64(stats[i].NetOut-prev.NetOut) / timeDelta)
 			}
 		}
-		
+
 		// Store current stats for next iteration
 		previousStats[key] = stats[i]
 	}
@@ -301,23 +301,23 @@ func displayTop(stats []vmStats) {
 	// Header - fixed width 100 chars
 	borderTop := "╔══════════════════════════════════════════════════════════════════════════════════════════════════╗"
 	borderBottom := "╚══════════════════════════════════════════════════════════════════════════════════════════════════╝"
-	
+
 	fmt.Printf("\n%s\n", borderTop)
-	
+
 	// Title line
 	title := "PVECLI TOP - Real-time VM/Container Monitor"
 	totalWidth := 98 // 100 - 2 for borders
 	paddingLeft := (totalWidth - len(title)) / 2
 	paddingRight := totalWidth - len(title) - paddingLeft
 	fmt.Printf("║%s%s%s║\n", strings.Repeat(" ", paddingLeft), title, strings.Repeat(" ", paddingRight))
-	
+
 	// Info line
 	infoLine := fmt.Sprintf("Refresh: %ds | Sort: %s | Time: %s | Press 'q' or Ctrl+C to exit",
 		topRefreshInterval, topSortBy, time.Now().Format("2006-01-02 15:04:05"))
 	paddingLeft = (totalWidth - len(infoLine)) / 2
 	paddingRight = totalWidth - len(infoLine) - paddingLeft
 	fmt.Printf("║%s%s%s║\n", strings.Repeat(" ", paddingLeft), infoLine, strings.Repeat(" ", paddingRight))
-	
+
 	fmt.Printf("%s\n\n", borderBottom)
 
 	// Summary
@@ -343,7 +343,7 @@ func displayTop(stats []vmStats) {
 	if runningVMs > 0 {
 		avgCPU = totalCPU / float64(runningVMs)
 	}
-	
+
 	memPercent := 0.0
 	if totalMem > 0 {
 		memPercent = float64(totalMemUsed) / float64(totalMem) * 100
@@ -380,7 +380,7 @@ func displayTop(stats []vmStats) {
 
 		// CPU bar
 		cpuBar := makeBar(s.CPUUsage, 100, 10)
-		
+
 		// Memory percentage
 		memPercent := 0.0
 		if s.MemTotal > 0 {
@@ -393,7 +393,7 @@ func displayTop(stats []vmStats) {
 		if s.DiskReadRate > 0 || s.DiskWriteRate > 0 {
 			diskIO = fmt.Sprintf("R:%s/s W:%s/s", formatBytes(s.DiskReadRate), formatBytes(s.DiskWriteRate))
 		}
-		
+
 		// Format network I/O rates
 		netIO := "-"
 		if s.NetInRate > 0 || s.NetOutRate > 0 {
@@ -487,4 +487,3 @@ func hideCursor() {
 func showCursor() {
 	fmt.Print("\033[?25h")
 }
-

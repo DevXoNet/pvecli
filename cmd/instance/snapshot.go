@@ -138,4 +138,3 @@ Example:
 		return output.PrintSuccess(fmt.Sprintf("Snapshot '%s' deleted successfully", snapshotName), data)
 	},
 }
-
