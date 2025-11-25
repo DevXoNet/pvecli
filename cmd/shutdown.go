@@ -19,7 +19,7 @@ import (
 
 	"pvecli/config"
 	"pvecli/internal/output"
-	"pvecli/internal/proxmox"
+	"pvecli/internal/pve"
 
 	"github.com/spf13/cobra"
 )
@@ -41,7 +41,7 @@ var shutdownCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("config error: %w", err)
 		}
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		// Find node
 		node, instanceType, err := client.FindNodeByVMID(vmid)

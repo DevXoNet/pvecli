@@ -22,7 +22,7 @@ import (
 
 	"pvecli/config"
 	"pvecli/internal/output"
-	"pvecli/internal/proxmox"
+	"pvecli/internal/pve"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -67,7 +67,7 @@ func Execute() {
 
 	if err := rootCmd.Execute(); err != nil {
 		// Check if it's a friendly error (informational message)
-		if friendlyErr, ok := err.(*proxmox.FriendlyError); ok {
+		if friendlyErr, ok := err.(*pve.FriendlyError); ok {
 			// Load config to get output format
 			cfg, cfgErr := config.LoadConfig()
 			outputFormat := config.OutputFormatText

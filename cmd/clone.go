@@ -20,7 +20,7 @@ import (
 
 	"pvecli/config"
 	"pvecli/internal/output"
-	"pvecli/internal/proxmox"
+	"pvecli/internal/pve"
 
 	"github.com/spf13/cobra"
 )
@@ -72,7 +72,7 @@ Examples:
 			return err
 		}
 
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		// Pre-check: ensure new ID is not already in use anywhere in the cluster //TODO now work , I need to fix the error output
 		if _, _, err := client.FindVM(cloneNewID); err == nil {
@@ -137,7 +137,7 @@ Examples:
 		// Execute clone
 		fmt.Printf("Cloning VM %d -> %d...\n", templateID, cloneNewID)
 
-		taskID, err := client.CloneVM(node, templateID, vmType, proxmox.CloneParams{
+		taskID, err := client.CloneVM(node, templateID, vmType, pve.CloneParams{
 			NewID:       cloneNewID,
 			Name:        cloneName,
 			Description: cloneDescription,

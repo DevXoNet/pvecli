@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"pvecli/config"
-	"pvecli/internal/proxmox"
+	"pvecli/internal/pve"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
@@ -36,16 +36,18 @@ var (
 )
 
 var topCmd = &cobra.Command{
-	Use:   "top",
-	Short: "Real-time monitoring of VMs and containers",
-	Long:  "Display real-time CPU, RAM, disk I/O, and network statistics for all VMs and containers",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Use:           "top",
+	Short:         "Real-time monitoring of VMs and containers",
+	Long:          "Display real-time CPU, RAM, disk I/O, and network statistics for all VMs and containers",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadConfig()
 		if err != nil {
 			return err
 		}
 
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		// Initialize previous stats map
 		previousStats = make(map[string]vmStats)
@@ -55,48 +57,95 @@ var topCmd = &cobra.Command{
 		hideCursor()
 		defer showCursor()
 
+		// Set terminal to raw mode for key detection
+		exec.Command("stty", "-F", "/dev/tty", "cbreak", "min", "1").Run()
+		exec.Command("stty", "-F", "/dev/tty", "-echo").Run()
+		defer exec.Command("stty", "-F", "/dev/tty", "echo").Run()
+
+		// Channel for quit signal
+		quit := make(chan bool)
+
+		// Goroutine to listen for 'q' key
+		go func() {
+			b := make([]byte, 1)
+			for {
+				os.Stdin.Read(b)
+				if b[0] == 'q' || b[0] == 'Q' {
+					quit <- true
+					return
+				}
+			}
+		}()
+
 		// Main monitoring loop
 		for {
-			// Get all nodes
-			nodes, err := client.GetNodes()
+			// Get all resources at once (much faster than individual queries)
+			resources, err := client.GetClusterResources()
 			if err != nil {
 				return err
 			}
 
-			// Collect stats from all nodes
+			// Collect stats from cluster resources
 			var allStats []vmStats
-			for _, node := range nodes {
-				// Get VMs
-				vms, err := client.GetVMs(node.Node)
-				if err != nil {
+			for _, resource := range resources {
+				resMap, ok := resource.(map[string]interface{})
+				if !ok {
 					continue
 				}
 
-				for _, vm := range vms {
-					stats, err := getVMStats(client, node.Node, vm.VMID, "qemu")
-					if err != nil {
-						continue
-					}
-					stats.Node = node.Node
+				// Only process VMs and containers
+				resType, _ := resMap["type"].(string)
+				if resType != "qemu" && resType != "lxc" {
+					continue
+				}
+
+				// Extract stats directly from resource
+				stats := vmStats{}
+				
+				if vmid, ok := resMap["vmid"].(float64); ok {
+					stats.VMID = int(vmid)
+				}
+				if name, ok := resMap["name"].(string); ok {
+					stats.Name = name
+				}
+				if node, ok := resMap["node"].(string); ok {
+					stats.Node = node
+				}
+				if status, ok := resMap["status"].(string); ok {
+					stats.Status = status
+				}
+				if cpu, ok := resMap["cpu"].(float64); ok {
+					stats.CPUUsage = cpu * 100
+				}
+				if cpus, ok := resMap["maxcpu"].(float64); ok {
+					stats.CPUCores = int(cpus)
+				}
+				if mem, ok := resMap["mem"].(float64); ok {
+					stats.MemUsage = uint64(mem)
+				}
+				if maxmem, ok := resMap["maxmem"].(float64); ok {
+					stats.MemTotal = uint64(maxmem)
+				}
+				if diskread, ok := resMap["diskread"].(float64); ok {
+					stats.DiskRead = uint64(diskread)
+				}
+				if diskwrite, ok := resMap["diskwrite"].(float64); ok {
+					stats.DiskWrite = uint64(diskwrite)
+				}
+				if netin, ok := resMap["netin"].(float64); ok {
+					stats.NetIn = uint64(netin)
+				}
+				if netout, ok := resMap["netout"].(float64); ok {
+					stats.NetOut = uint64(netout)
+				}
+
+				if resType == "qemu" {
 					stats.Type = "VM"
-					allStats = append(allStats, stats)
-				}
-
-				// Get containers
-				containers, err := client.GetContainers(node.Node)
-				if err != nil {
-					continue
-				}
-
-				for _, ct := range containers {
-					stats, err := getVMStats(client, node.Node, ct.VMID, "lxc")
-					if err != nil {
-						continue
-					}
-					stats.Node = node.Node
+				} else {
 					stats.Type = "CT"
-					allStats = append(allStats, stats)
 				}
+
+				allStats = append(allStats, stats)
 			}
 
 			// Calculate rates based on previous stats
@@ -109,8 +158,13 @@ var topCmd = &cobra.Command{
 			clearScreen()
 			displayTop(allStats)
 
-			// Wait for refresh interval
-			time.Sleep(time.Duration(topRefreshInterval) * time.Second)
+			// Wait for refresh interval or quit signal
+			select {
+			case <-quit:
+				return nil
+			case <-time.After(time.Duration(topRefreshInterval) * time.Second):
+				// Continue to next iteration
+			}
 		}
 	},
 }
@@ -135,7 +189,7 @@ type vmStats struct {
 	NetOutRate    uint64  // Bytes per second
 }
 
-func getVMStats(client *proxmox.Client, node string, vmid int, vmType string) (vmStats, error) {
+func getVMStats(client *pve.Client, node string, vmid int, vmType string) (vmStats, error) {
 	var stats vmStats
 	stats.VMID = vmid
 
@@ -258,7 +312,7 @@ func displayTop(stats []vmStats) {
 	fmt.Printf("║%s%s%s║\n", strings.Repeat(" ", paddingLeft), title, strings.Repeat(" ", paddingRight))
 	
 	// Info line
-	infoLine := fmt.Sprintf("Refresh: %ds | Sort: %s | Time: %s",
+	infoLine := fmt.Sprintf("Refresh: %ds | Sort: %s | Time: %s | Press 'q' or Ctrl+C to exit",
 		topRefreshInterval, topSortBy, time.Now().Format("2006-01-02 15:04:05"))
 	paddingLeft = (totalWidth - len(infoLine)) / 2
 	paddingRight = totalWidth - len(infoLine) - paddingLeft
@@ -365,7 +419,9 @@ func displayTop(stats []vmStats) {
 
 	// Footer
 	fmt.Println()
-	fmt.Println("Press Ctrl+C to exit | Sort by: --sort-by cpu|mem|disk|net")
+	fmt.Printf("\033[2m") // Dim text
+	fmt.Println("Options: --sort-by cpu|mem|disk|net|id  --interval <seconds>")
+	fmt.Printf("\033[0m") // Reset
 }
 
 func makeBar(value, max float64, width int) string {

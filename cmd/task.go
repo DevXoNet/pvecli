@@ -21,7 +21,7 @@ import (
 
 	"pvecli/config"
 	"pvecli/internal/output"
-	"pvecli/internal/proxmox"
+	"pvecli/internal/pve"
 
 	"github.com/spf13/cobra"
 )
@@ -50,7 +50,7 @@ var taskListCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("config error: %w", err)
 		}
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		var allTasks []map[string]interface{}
 
@@ -112,7 +112,7 @@ var taskStatusCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("config error: %w", err)
 		}
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		// Parse UPID to extract node
 		node, err := parseUPIDNode(upid)
@@ -145,7 +145,7 @@ var taskLogCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("config error: %w", err)
 		}
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		// Parse UPID to extract node
 		node, err := parseUPIDNode(upid)
@@ -182,7 +182,7 @@ var taskWaitCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("config error: %w", err)
 		}
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		// Parse UPID to extract node
 		node, err := parseUPIDNode(upid)

@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"pvecli/config"
-	"pvecli/internal/proxmox"
+	"pvecli/internal/pve"
 	"pvecli/internal/ssh"
 
 	"github.com/spf13/cobra"
@@ -37,8 +37,10 @@ var (
 )
 
 var clusterUpdateCmd = &cobra.Command{
-	Use:   "update",
-	Short: "Update all cluster nodes via SSH",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Use:           "update",
+	Short:         "Update all cluster nodes via SSH",
 	Long: `Update all cluster nodes by running apt update && apt upgrade via SSH.
 
 The command will:
@@ -54,7 +56,7 @@ The command will:
 			return err
 		}
 
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		// Get cluster config
 		cluster, err := config.GetCurrentCluster()
@@ -108,7 +110,7 @@ The command will:
 			fmt.Printf("SSH Port: %d\n\n", sshPort)
 		}
 
-		// Check for updates on all nodes
+		// Check for updates on all nodes (in parallel for speed)
 		type nodeUpdate struct {
 			name    string
 			ip      string
@@ -116,79 +118,66 @@ The command will:
 			err     error
 		}
 
-		nodeUpdates := make([]nodeUpdate, 0, len(nodes))
-
 		if outputFormat == config.OutputFormatText {
 			fmt.Println("Checking for updates on all nodes...")
 		}
+
+		// Use channels for parallel execution
+		resultsChan := make(chan nodeUpdate, len(nodes))
+		
 		for _, node := range nodes {
-			if outputFormat == config.OutputFormatText {
-				fmt.Printf("  → %s (%s)... ", node.Node, node.IP)
-			}
-
-			sshClient, err := ssh.NewClient(node.IP, sshUser, sshKeyPath, sshPort)
-			if err != nil {
-				if outputFormat == config.OutputFormatText {
-					fmt.Printf("✗ SSH connection failed: %v\n", err)
+			go func(n pve.Node) {
+				result := nodeUpdate{
+					name: n.Node,
+					ip:   n.IP,
 				}
-				nodeUpdates = append(nodeUpdates, nodeUpdate{
-					name: node.Node,
-					ip:   node.IP,
-					err:  err,
-				})
-				continue
-			}
 
-			// Run apt update
-			_, err = sshClient.RunCommand("apt update -qq")
-			if err != nil {
-				if outputFormat == config.OutputFormatText {
-					fmt.Printf("✗ apt update failed\n")
+				sshClient, err := ssh.NewClient(n.IP, sshUser, sshKeyPath, sshPort)
+				if err != nil {
+					result.err = fmt.Errorf("SSH connection failed: %w", err)
+					resultsChan <- result
+					return
 				}
+
+				// Run apt update
+				_, err = sshClient.RunCommand("apt update -qq")
+				if err != nil {
+					sshClient.Close()
+					result.err = fmt.Errorf("apt update failed: %w", err)
+					resultsChan <- result
+					return
+				}
+
+				// Check what would be upgraded
+				output, err := sshClient.RunCommand("apt list --upgradable 2>/dev/null | grep -v 'Listing' || true")
 				sshClient.Close()
-				nodeUpdates = append(nodeUpdates, nodeUpdate{
-					name: node.Node,
-					ip:   node.IP,
-					err:  fmt.Errorf("apt update failed: %w", err),
-				})
-				continue
-			}
 
-			// Check what would be upgraded
-			output, err := sshClient.RunCommand("apt list --upgradable 2>/dev/null | grep -v 'Listing' || true")
-			sshClient.Close()
+				if err != nil {
+					result.err = fmt.Errorf("failed to check updates: %w", err)
+					resultsChan <- result
+					return
+				}
 
-			if err != nil {
-				if outputFormat == config.OutputFormatText {
-					fmt.Printf("✗ failed to check updates: %v\n", err)
-				}
-				nodeUpdates = append(nodeUpdates, nodeUpdate{
-					name: node.Node,
-					ip:   node.IP,
-					err:  fmt.Errorf("failed to check updates: %w", err),
-				})
-				continue
-			}
+				result.updates = strings.TrimSpace(output)
+				resultsChan <- result
+			}(node)
+		}
 
-			if strings.TrimSpace(output) == "" {
-				if outputFormat == config.OutputFormatText {
-					fmt.Println("✓ No updates available")
+		// Collect results from channel
+		nodeUpdates := make([]nodeUpdate, 0, len(nodes))
+		for i := 0; i < len(nodes); i++ {
+			result := <-resultsChan
+			nodeUpdates = append(nodeUpdates, result)
+			
+			if outputFormat == config.OutputFormatText {
+				if result.err != nil {
+					fmt.Printf("  → %s (%s)... ✗ %v\n", result.name, result.ip, result.err)
+				} else if result.updates == "" {
+					fmt.Printf("  → %s (%s)... ✓ No updates available\n", result.name, result.ip)
+				} else {
+					lines := strings.Split(strings.TrimSpace(result.updates), "\n")
+					fmt.Printf("  → %s (%s)... ✓ %d updates available\n", result.name, result.ip, len(lines))
 				}
-				nodeUpdates = append(nodeUpdates, nodeUpdate{
-					name:    node.Node,
-					ip:      node.IP,
-					updates: "",
-				})
-			} else {
-				lines := strings.Split(strings.TrimSpace(output), "\n")
-				if outputFormat == config.OutputFormatText {
-					fmt.Printf("✓ %d updates available\n", len(lines))
-				}
-				nodeUpdates = append(nodeUpdates, nodeUpdate{
-					name:    node.Node,
-					ip:      node.IP,
-					updates: output,
-				})
 			}
 		}
 

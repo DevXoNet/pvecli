@@ -19,7 +19,7 @@ import (
 
 	"pvecli/config"
 	"pvecli/internal/output"
-	"pvecli/internal/proxmox"
+	"pvecli/internal/pve"
 
 	"github.com/spf13/cobra"
 )
@@ -50,7 +50,7 @@ var backupListCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("config error: %w", err)
 		}
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		// Get any node (storage is accessible cluster-wide)
 		nodes, err := client.GetNodes()
@@ -122,7 +122,7 @@ var backupDeleteCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("config error: %w", err)
 		}
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		// Get any node (storage is accessible cluster-wide)
 		nodes, err := client.GetNodes()

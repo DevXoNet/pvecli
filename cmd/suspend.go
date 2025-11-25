@@ -19,7 +19,7 @@ import (
 
 	"pvecli/config"
 	"pvecli/internal/output"
-	"pvecli/internal/proxmox"
+	"pvecli/internal/pve"
 
 	"github.com/spf13/cobra"
 )
@@ -38,7 +38,7 @@ var suspendCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("config error: %w", err)
 		}
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		// Find node
 		node, instanceType, err := client.FindNodeByVMID(vmid)
@@ -46,7 +46,7 @@ var suspendCmd = &cobra.Command{
 			return err
 		}
 
-		if instanceType != "vm" {
+		if instanceType != "qemu" {
 			return fmt.Errorf("only VMs can be suspended")
 		}
 
@@ -78,7 +78,7 @@ var resumeCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("config error: %w", err)
 		}
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		// Find node
 		node, instanceType, err := client.FindNodeByVMID(vmid)
@@ -86,7 +86,7 @@ var resumeCmd = &cobra.Command{
 			return err
 		}
 
-		if instanceType != "vm" {
+		if instanceType != "qemu" {
 			return fmt.Errorf("only VMs can be resumed")
 		}
 

@@ -19,7 +19,7 @@ import (
 
 	"pvecli/config"
 	"pvecli/internal/output"
-	"pvecli/internal/proxmox"
+	"pvecli/internal/pve"
 
 	"github.com/spf13/cobra"
 )
@@ -47,7 +47,7 @@ var agentPingCmd = &cobra.Command{
 			return err
 		}
 
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 		vmid := args[0]
 
 		// Find node
@@ -57,7 +57,7 @@ var agentPingCmd = &cobra.Command{
 		}
 
 		// Only works with VMs, not containers
-		if instanceType != "vm" {
+		if instanceType != "qemu" {
 			return fmt.Errorf("guest agent only works with VMs, not containers")
 		}
 
@@ -91,7 +91,7 @@ var agentNetworkCmd = &cobra.Command{
 			return err
 		}
 
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 		vmid := args[0]
 
 		// Find node
@@ -100,7 +100,7 @@ var agentNetworkCmd = &cobra.Command{
 			return err
 		}
 
-		if instanceType != "vm" {
+		if instanceType != "qemu" {
 			return fmt.Errorf("guest agent only works with VMs, not containers")
 		}
 
@@ -128,7 +128,7 @@ var agentOSInfoCmd = &cobra.Command{
 			return err
 		}
 
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 		vmid := args[0]
 
 		// Find node
@@ -137,7 +137,7 @@ var agentOSInfoCmd = &cobra.Command{
 			return err
 		}
 
-		if instanceType != "vm" {
+		if instanceType != "qemu" {
 			return fmt.Errorf("guest agent only works with VMs, not containers")
 		}
 
@@ -177,7 +177,7 @@ Linux (RHEL/CentOS/AlmaLinux):
 			return err
 		}
 
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 		vmid := args[0]
 		command := args[1:]
 
@@ -187,7 +187,7 @@ Linux (RHEL/CentOS/AlmaLinux):
 			return err
 		}
 
-		if instanceType != "vm" {
+		if instanceType != "qemu" {
 			return fmt.Errorf("guest agent only works with VMs, not containers")
 		}
 
@@ -215,7 +215,7 @@ var agentFSInfoCmd = &cobra.Command{
 			return err
 		}
 
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 		vmid := args[0]
 
 		// Find node
@@ -224,7 +224,7 @@ var agentFSInfoCmd = &cobra.Command{
 			return err
 		}
 
-		if instanceType != "vm" {
+		if instanceType != "qemu" {
 			return fmt.Errorf("guest agent only works with VMs, not containers")
 		}
 

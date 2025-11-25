@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"pvecli/config"
-	"pvecli/internal/proxmox"
+	"pvecli/internal/pve"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
@@ -49,16 +49,18 @@ func progressBar(percent float64, width int) string {
 }
 
 var clusterCmd = &cobra.Command{
-	Use:   "cluster",
-	Short: "Show cluster overview and health status",
-	Long:  "Display cluster health, nodes status, VM/CT statistics, and resource usage",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Use:           "cluster",
+	Short:         "Show cluster overview and health status",
+	Long:          "Display cluster health, nodes status, VM/CT statistics, and resource usage",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadConfig()
 		if err != nil {
 			return err
 		}
 
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		// Get cluster status for cluster name and node IPs
 		clusterStatusData, err := client.GetClusterStatus()
