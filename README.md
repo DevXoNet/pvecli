@@ -9,7 +9,6 @@
   ![Go Version](https://img.shields.io/badge/Go-1.25-blue)
   ![License](https://img.shields.io/badge/License-Apache%202.0-green)
   ![CodeQL](https://github.com/DevXoNet/pvecli/actions/workflows/codeql.yml/badge.svg)
-  ![Dependabot](https://github.com/DevXoNet/pvecli/actions/workflows/dependabot.yml/badge.svg)
   ![Security Policy](https://img.shields.io/badge/Security-Policy%20Available-brightgreen)
 </p>
 
