@@ -8,7 +8,9 @@
   ![Tests](https://img.shields.io/badge/Tests-Passing-brightgreen)
   ![Go Version](https://img.shields.io/badge/Go-1.25-blue)
   ![License](https://img.shields.io/badge/License-Apache%202.0-green)
-
+  ![CodeQL](https://github.com/DevXoNet/pvecli/actions/workflows/codeql.yml/badge.svg)
+  ![Dependabot](https://github.com/DevXoNet/pvecli/actions/workflows/dependabot.yml/badge.svg)
+  ![Security Policy](https://img.shields.io/badge/Security-Policy%20Available-brightgreen)
 </p>
 
 
@@ -22,6 +24,19 @@
 Traditional Proxmox cluster management presents several challenges. Administrators often need SSH access to individual nodes, must manually track which VMs reside on which nodes, and rely on separate commands for different operations. While the web UI provides cluster-wide visibility, it's not ideal for automation or scripting workflows.
 
 pvecli addresses these pain points by offering a unified command-line interface that works across your entire cluster. Using Proxmox's REST API and token-based authentication, it eliminates the need for SSH access while providing powerful automation capabilities.
+
+## 🔐 Security Audit
+
+Every commit in `main` and `dev` undergoes:
+
+- CodeQL security analysis  
+- govulncheck dependency vulnerability scan  
+- staticcheck deep inspection  
+- golangci-lint secure coding rules  
+- TLS-only API communication  
+- No password-based authentication  
+- No SSH access required  
+
 
 ## Key Features
 
