@@ -1,5 +1,17 @@
-// Copyright 2025 DevXo part of vByte Ltd
-package cmd
+// Copyright 2025 DevXo part of vByte Ltd //
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package oci
 
 import (
 	"fmt"
@@ -35,20 +47,20 @@ Examples:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		node := args[0]
 		repository := args[1]
-		
+
 		cfg, err := config.LoadConfig()
 		if err != nil {
 			output.PrintError(fmt.Errorf("config error: %w", err))
 			return nil
 		}
 		client := pve.NewClient(cfg)
-		
+
 		tags, err := client.QueryOCIRepoTags(node, repository)
 		if err != nil {
 			output.PrintError(err)
 			return nil
 		}
-		
+
 		output.Print(map[string]interface{}{
 			"repository": repository,
 			"node":       node,
@@ -79,14 +91,14 @@ Examples:
 			return nil
 		}
 		client := pve.NewClient(cfg)
-		
+
 		// Get all storages from datacenter (faster than per-node)
 		storages, err := client.GetAllStorages()
 		if err != nil {
 			output.PrintError(err)
 			return nil
 		}
-		
+
 		// Get first node for querying content
 		nodes, err := client.GetNodes()
 		if err != nil || len(nodes) == 0 {
@@ -94,52 +106,52 @@ Examples:
 			return nil
 		}
 		firstNode := nodes[0].Node
-		
+
 		ociImages := make([]map[string]interface{}, 0)
 		seenImages := make(map[string]bool) // Avoid duplicates
-		
+
 		for _, storage := range storages {
 			storageMap, ok := storage.(map[string]interface{})
 			if !ok {
 				continue
 			}
-			
+
 			storageName, _ := storageMap["storage"].(string)
-			
+
 			// Filter by storage if specified
 			if len(args) > 0 && storageName != args[0] {
 				continue
 			}
-			
+
 			// Check if storage supports Container template
 			contentTypes, ok := storageMap["content"].(string)
 			if !ok || !containsSubstr(contentTypes, "vztmpl") {
 				continue
 			}
-			
+
 			// Skip storages that don't have Container template enabled
 			if contentTypes == "" {
 				continue
 			}
-			
+
 			// Get content from storage (use first node for shared storages)
 			content, err := client.ListBackups(firstNode, storageName, "")
 			if err != nil {
 				continue
 			}
-			
+
 			// Filter for OCI images (tar format only)
 			for _, item := range content {
 				if contentType, ok := item["content"].(string); ok && contentType == "vztmpl" {
 					if format, ok := item["format"].(string); ok && format == "tar" {
 						volid, _ := item["volid"].(string)
-						
+
 						// Skip if already seen (avoid duplicates from shared storage)
 						if seenImages[volid] {
 							continue
 						}
 						seenImages[volid] = true
-						
+
 						image := map[string]interface{}{
 							"storage": storageName,
 							"volid":   volid,
@@ -151,7 +163,7 @@ Examples:
 				}
 			}
 		}
-		
+
 		if len(ociImages) == 0 {
 			output.Print(map[string]interface{}{
 				"message": "No OCI images found",
@@ -183,5 +195,10 @@ func containsSubstr(s, substr string) bool {
 func init() {
 	ociCmd.AddCommand(ociTagsCmd)
 	ociCmd.AddCommand(ociImagesCmd)
-	rootCmd.AddCommand(ociCmd)
+
+}
+
+// Init registers all OCI commands
+func Init(root *cobra.Command) {
+	root.AddCommand(ociCmd)
 }

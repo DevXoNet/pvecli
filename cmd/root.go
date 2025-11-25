@@ -20,6 +20,15 @@ import (
 	"os"
 	"strings"
 
+	"pvecli/cmd/agent"
+	"pvecli/cmd/cluster"
+	"pvecli/cmd/instance"
+	"pvecli/cmd/lxc"
+	"pvecli/cmd/monitoring"
+	"pvecli/cmd/oci"
+	"pvecli/cmd/storage"
+	"pvecli/cmd/task"
+	"pvecli/cmd/vm"
 	"pvecli/config"
 	"pvecli/internal/output"
 	"pvecli/internal/pve"
@@ -46,6 +55,20 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&debugFlag, "debug", "d", false, "Enable debug output")
 	rootCmd.PersistentFlags().StringVarP(&envFlag, "env", "e", "", "Environment/cluster to use (prod, dev, staging, etc.)")
+
+	// Initialize all command packages
+	instance.Init(rootCmd)
+	vm.Init(rootCmd)
+	lxc.Init(rootCmd)
+	agent.Init(rootCmd)
+	cluster.Init(rootCmd)
+	storage.Init(rootCmd)
+	oci.Init(rootCmd)
+	monitoring.Init(rootCmd)
+	task.Init(rootCmd)
+
+	// Config command stays in cmd package
+	rootCmd.AddCommand(configCmd)
 }
 
 func Execute() {
@@ -77,14 +100,14 @@ func Execute() {
 
 			// Parse the message to extract structured data
 			msg := friendlyErr.Msg
-			
+
 			switch outputFormat {
 			case config.OutputFormatJSON:
 				// Parse message to extract vmid and action
 				output := map[string]interface{}{
 					"message": msg,
 				}
-				
+
 				// Try to extract vmid and status from message
 				if strings.Contains(msg, "instance") {
 					parts := strings.Fields(msg)
@@ -103,15 +126,15 @@ func Execute() {
 						output["status"] = "not_running"
 					}
 				}
-				
+
 				b, _ := json.MarshalIndent(output, "", "  ")
 				fmt.Println(string(b))
-				
+
 			case config.OutputFormatYAML:
 				output := map[string]interface{}{
 					"message": msg,
 				}
-				
+
 				if strings.Contains(msg, "instance") {
 					parts := strings.Fields(msg)
 					if len(parts) >= 2 {
@@ -129,10 +152,10 @@ func Execute() {
 						output["status"] = "not_running"
 					}
 				}
-				
+
 				b, _ := yaml.Marshal(output)
 				fmt.Print(string(b))
-				
+
 			case config.OutputFormatText:
 				fmt.Println(msg)
 			}

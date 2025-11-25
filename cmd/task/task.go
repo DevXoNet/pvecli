@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package task
 
 import (
 	"fmt"
@@ -239,15 +239,8 @@ func parseUPIDNode(upid string) (string, error) {
 	return parts[1], nil
 }
 
-func init() {
-	taskListCmd.Flags().IntVarP(&taskLimit, "limit", "l", 5, "Number of tasks to show")
-	taskListCmd.Flags().StringVarP(&taskNode, "node", "n", "", "Filter by node")
-	
-	taskLogCmd.Flags().IntVarP(&taskLines, "lines", "n", 0, "Number of lines to show (0 = all)")
-	
-	taskCmd.AddCommand(taskListCmd)
-	taskCmd.AddCommand(taskStatusCmd)
-	taskCmd.AddCommand(taskLogCmd)
-	taskCmd.AddCommand(taskWaitCmd)
-	rootCmd.AddCommand(taskCmd)
+
+// Init registers all task commands
+func Init(root *cobra.Command) {
+root.AddCommand(taskCmd)
 }

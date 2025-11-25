@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package storage
 
 import (
 	"fmt"
@@ -180,15 +180,18 @@ var backupDeleteCmd = &cobra.Command{
 	},
 }
 
+
 func init() {
-	backupListCmd.Flags().StringVarP(&backupStorage, "storage", "s", "", "Storage name or type (pbs/nfs) - required")
-	backupListCmd.Flags().StringVar(&backupVMID, "vmid", "", "Filter by VMID")
-	backupListCmd.MarkFlagRequired("storage")
-
-	backupDeleteCmd.Flags().StringVarP(&backupStorage, "storage", "s", "", "Storage name or type (pbs/nfs) - required")
-	backupDeleteCmd.MarkFlagRequired("storage")
-
 	backupCmd.AddCommand(backupListCmd)
 	backupCmd.AddCommand(backupDeleteCmd)
-	rootCmd.AddCommand(backupCmd)
+	
+	backupListCmd.Flags().StringVarP(&backupStorage, "storage", "s", "", "Storage name or type (pbs/nfs)")
+	backupListCmd.Flags().StringVarP(&backupVMID, "vmid", "v", "", "Filter by VMID")
+	
+	backupDeleteCmd.Flags().StringVarP(&backupStorage, "storage", "s", "", "Storage name where backup is located")
+}
+
+// Init registers all storage commands
+func Init(root *cobra.Command) {
+	root.AddCommand(backupCmd)
 }

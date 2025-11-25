@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package instance
 
 import (
 	"fmt"
@@ -56,7 +56,7 @@ Example:
 		client := pve.NewClient(cfg)
 
 		// Find which node hosts this VM/container
-		node, instanceType, err := client.FindNodeByVMID(vmid)
+		node, instanceType, err := FindInstance(client, vmid)
 		if err != nil {
 			return err
 		}
@@ -116,7 +116,7 @@ Example:
 		client := pve.NewClient(cfg)
 
 		// Find which node hosts this VM/container
-		node, instanceType, err := client.FindNodeByVMID(vmid)
+		node, instanceType, err := FindInstance(client, vmid)
 		if err != nil {
 			return err
 		}
@@ -139,13 +139,3 @@ Example:
 	},
 }
 
-func init() {
-	snapshotCmd.Flags().StringVar(&snapshotName, "name", "", "Snapshot name (auto-generated if not specified)")
-	snapshotCmd.Flags().StringVar(&snapshotDescription, "description", "", "Snapshot description")
-	snapshotCmd.Flags().BoolVar(&snapshotNoRAM, "no-ram", false, "Exclude RAM/VM state from snapshot (RAM included by default for QEMU VMs)")
-
-	snapshotDelCmd.Flags().StringVar(&snapshotName, "name", "", "Snapshot name to delete (required)")
-	snapshotCmd.AddCommand(snapshotDelCmd)
-
-	rootCmd.AddCommand(snapshotCmd)
-}

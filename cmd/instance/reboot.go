@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package instance
 
 import (
+	"fmt"
+
 	"pvecli/config"
 	"pvecli/internal/output"
 	"pvecli/internal/pve"
@@ -22,56 +24,39 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var statusCmd = &cobra.Command{
-	Use:           "status <vmid/ctid>",
-	Short:         "Show current status of VM or container",
+var rebootCmd = &cobra.Command{
+	Use:           "reboot <vmid>",
+	Short:         "Reboot VM or container",
 	Args:          cobra.ExactArgs(1),
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.LoadConfig()
-		if err != nil {
-			return err
-		}
-
-		client := pve.NewClient(cfg)
 		vmid := args[0]
 
-		// Find which node has this VM/CT and its type
-		node, instanceType, err := client.FindNodeByVMID(vmid)
+		cfg, err := config.LoadConfig()
+		if err != nil {
+			return fmt.Errorf("config error: %w", err)
+		}
+		client := pve.NewClient(cfg)
+
+		// Find node
+		node, instanceType, err := FindInstance(client, vmid)
 		if err != nil {
 			return err
 		}
 
-		// Get status
-		status, err := client.GetInstanceStatus(node, vmid, instanceType)
+		// Reboot
+		err = client.RebootInstance(node, vmid, instanceType)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to reboot: %w", err)
 		}
 
-		// Extract key information
-		name := status["name"]
-		statusStr := status["status"]
-		vmType := instanceType
-		if vmType == "ct" {
-			vmType = "LXC"
-		} else {
-			vmType = "VM"
-		}
-
-		// Prepare output data
-		data := map[string]interface{}{
+		return output.PrintSuccess(fmt.Sprintf("Instance %s rebooted successfully", vmid), map[string]interface{}{
 			"vmid":   vmid,
-			"name":   name,
-			"status": statusStr,
-			"type":   vmType,
 			"node":   node,
-		}
-
-		return output.Print(data)
+			"type":   instanceType,
+			"action": "reboot",
+		})
 	},
 }
 
-func init() {
-	rootCmd.AddCommand(statusCmd)
-}

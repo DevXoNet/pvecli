@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package instance
 
 import (
 	"fmt"
@@ -23,6 +23,8 @@ import (
 
 	"github.com/spf13/cobra"
 )
+
+var RootCmd *cobra.Command
 
 var startCmd = &cobra.Command{
 	SilenceUsage:  true, // Don't show usage on error
@@ -37,7 +39,7 @@ var startCmd = &cobra.Command{
 			return err
 		}
 		client := pve.NewClient(cfg)
-		node, vmType, err := client.FindNodeByVMID(vmid)
+		node, vmType, err := FindInstance(client, vmid)
 		if err != nil {
 			return err
 		}
@@ -56,6 +58,3 @@ var startCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	rootCmd.AddCommand(startCmd)
-}

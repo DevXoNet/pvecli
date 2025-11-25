@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,58 +12,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package instance
 
 import (
-	"fmt"
-
+	"pvecli/config"
 	"pvecli/internal/output"
 	"pvecli/internal/pve"
-	"pvecli/config"
 
 	"github.com/spf13/cobra"
 )
 
-var templateCmd = &cobra.Command{
-	Use:           "template <vmid>",
-	Short:         "Convert VM to template",
-	Long:          "Convert a VM into a template (cannot be undone easily)",
+var infoCmd = &cobra.Command{
+	Use:           "info <vmid/ctid>",
+	Short:         "Show configuration info for VM or container by ID (node auto-detected)",
 	Args:          cobra.ExactArgs(1),
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vmid := args[0]
-
 		cfg, err := config.LoadConfig()
 		if err != nil {
-			return fmt.Errorf("config error: %w", err)
+			return err
 		}
 		client := pve.NewClient(cfg)
 
-		// Find node
-		node, instanceType, err := client.FindNodeByVMID(vmid)
+		node, instanceType, err := FindInstance(client, vmid)
 		if err != nil {
 			return err
 		}
 
-		if instanceType != "qemu" {
-			return fmt.Errorf("only VMs can be converted to templates")
-		}
-
-		// Convert to template
-		err = client.CreateTemplate(node, vmid)
+		conf, err := client.GetInstanceConfig(node, vmid, instanceType)
 		if err != nil {
-			return fmt.Errorf("failed to create template: %w", err)
+			return err
 		}
 
-		return output.PrintSuccess(fmt.Sprintf("VM %s converted to template successfully", vmid), map[string]interface{}{
-			"vmid":   vmid,
-			"node":   node,
-			"action": "template",
-		})
+		return output.Print(conf)
 	},
-}
-
-func init() {
-	rootCmd.AddCommand(templateCmd)
 }

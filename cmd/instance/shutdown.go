@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package instance
 
 import (
 	"fmt"
@@ -24,38 +24,49 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var stopCmd = &cobra.Command{
-	SilenceUsage:  true, // Don't show usage on error
-	SilenceErrors: true, // Don't show error: prefix
-	Use:           "stop <vmid/ctid>",
-	Short:         "Stop VM or container by ID (node auto-detected)",
+var (
+	shutdownForce bool
+)
+
+var shutdownCmd = &cobra.Command{
+	Use:           "shutdown <vmid>",
+	Short:         "Shutdown VM or container gracefully",
 	Args:          cobra.ExactArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vmid := args[0]
+
 		cfg, err := config.LoadConfig()
 		if err != nil {
-			return err
+			return fmt.Errorf("config error: %w", err)
 		}
 		client := pve.NewClient(cfg)
-		node, vmType, err := client.FindNodeByVMID(vmid)
+
+		// Find node
+		node, instanceType, err := FindInstance(client, vmid)
 		if err != nil {
 			return err
 		}
-		err = client.VMAction(node, vmid, "stop")
+
+		// Shutdown
+		err = client.ShutdownInstance(node, vmid, instanceType, shutdownForce)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to shutdown: %w", err)
 		}
-		
-		// Output success message
-		data := map[string]interface{}{
-			"vmid": vmid,
-			"node": node,
-			"type": vmType,
+
+		msg := fmt.Sprintf("Instance %s shutdown gracefully", vmid)
+		if shutdownForce {
+			msg = fmt.Sprintf("Instance %s forcefully shutdown", vmid)
 		}
-		return output.PrintSuccess(fmt.Sprintf("VM/CT %s stopped successfully", vmid), data)
+
+		return output.PrintSuccess(msg, map[string]interface{}{
+			"vmid":   vmid,
+			"node":   node,
+			"type":   instanceType,
+			"action": "shutdown",
+			"force":  shutdownForce,
+		})
 	},
 }
 
-func init() {
-	rootCmd.AddCommand(stopCmd)
-}
