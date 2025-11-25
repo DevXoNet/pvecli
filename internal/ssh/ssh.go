@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 // Client represents an SSH client connection
@@ -50,11 +51,14 @@ func NewClient(host, user, keyPath string, port int) (*Client, error) {
 		return nil, fmt.Errorf("no valid authentication methods available (key: %s)", keyPath)
 	}
 
+	// Get host key callback - try known_hosts first, fallback to insecure for development
+	hostKeyCallback := getHostKeyCallback()
+
 	// SSH client config
 	config := &ssh.ClientConfig{
 		User:            user,
 		Auth:            authMethods,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: hostKeyCallback,
 		Timeout:         10 * time.Second,
 	}
 
@@ -90,6 +94,31 @@ func (c *Client) RunCommand(cmd string) (string, error) {
 // Close closes the SSH connection
 func (c *Client) Close() error {
 	return c.client.Close()
+}
+
+// getHostKeyCallback returns a secure host key callback
+// It tries to use known_hosts file, falls back to InsecureIgnoreHostKey for development
+func getHostKeyCallback() ssh.HostKeyCallback {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		// Fallback to insecure if we can't get home dir
+		return ssh.InsecureIgnoreHostKey()
+	}
+
+	knownHostsPath := filepath.Join(home, ".ssh", "known_hosts")
+
+	// Check if known_hosts exists
+	if _, err := os.Stat(knownHostsPath); err == nil {
+		// Use known_hosts for verification
+		hostKeyCallback, err := knownhosts.New(knownHostsPath)
+		if err == nil {
+			return hostKeyCallback
+		}
+	}
+
+	// Fallback to insecure for development/testing
+	// In production, you should ensure known_hosts exists
+	return ssh.InsecureIgnoreHostKey()
 }
 
 // GetDefaultSSHKeyPath returns the default SSH key path

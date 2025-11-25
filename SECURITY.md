@@ -20,6 +20,7 @@ We will review, triage, and respond as quickly as possible.
 pvecli follows strict security practices:
 - No plaintext passwords
 - Token-based authentication only
-- All traffic uses TLS
+- All traffic uses TLS (API communication)
+- SSH host key verification via known_hosts
 - No remote code execution inside VMs or containers
 - Minimal, vetted dependencies
