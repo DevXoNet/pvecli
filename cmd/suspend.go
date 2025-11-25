@@ -15,21 +15,22 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"pvecli/config"
+	"pvecli/internal/output"
 	"pvecli/internal/proxmox"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var suspendCmd = &cobra.Command{
-	Use:   "suspend <vmid>",
-	Short: "Suspend VM",
-	Long:  "Suspend (pause) a running VM",
-	Args:  cobra.ExactArgs(1),
+	Use:           "suspend <vmid>",
+	Short:         "Suspend VM",
+	Long:          "Suspend (pause) a running VM",
+	Args:          cobra.ExactArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vmid := args[0]
 
@@ -55,43 +56,21 @@ var suspendCmd = &cobra.Command{
 			return fmt.Errorf("failed to suspend: %w", err)
 		}
 
-		// Output based on configured format
-		outputFormat := config.GetOutputFormat()
-
-		switch outputFormat {
-		case config.OutputFormatJSON:
-			output := map[string]interface{}{
-				"vmid":   vmid,
-				"node":   node,
-				"action": "suspend",
-				"status": "success",
-			}
-			b, _ := json.MarshalIndent(output, "", "  ")
-			fmt.Println(string(b))
-
-		case config.OutputFormatYAML:
-			output := map[string]interface{}{
-				"vmid":   vmid,
-				"node":   node,
-				"action": "suspend",
-				"status": "success",
-			}
-			b, _ := yaml.Marshal(output)
-			fmt.Print(string(b))
-
-		case config.OutputFormatText:
-			fmt.Printf("VM %s suspended successfully\n", vmid)
-		}
-
-		return nil
+		return output.PrintSuccess(fmt.Sprintf("VM %s suspended successfully", vmid), map[string]interface{}{
+			"vmid":   vmid,
+			"node":   node,
+			"action": "suspend",
+		})
 	},
 }
 
 var resumeCmd = &cobra.Command{
-	Use:   "resume <vmid>",
-	Short: "Resume VM",
-	Long:  "Resume a suspended VM",
-	Args:  cobra.ExactArgs(1),
+	Use:           "resume <vmid>",
+	Short:         "Resume VM",
+	Long:          "Resume a suspended VM",
+	Args:          cobra.ExactArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vmid := args[0]
 
@@ -117,35 +96,11 @@ var resumeCmd = &cobra.Command{
 			return fmt.Errorf("failed to resume: %w", err)
 		}
 
-		// Output based on configured format
-		outputFormat := config.GetOutputFormat()
-
-		switch outputFormat {
-		case config.OutputFormatJSON:
-			output := map[string]interface{}{
-				"vmid":   vmid,
-				"node":   node,
-				"action": "resume",
-				"status": "success",
-			}
-			b, _ := json.MarshalIndent(output, "", "  ")
-			fmt.Println(string(b))
-
-		case config.OutputFormatYAML:
-			output := map[string]interface{}{
-				"vmid":   vmid,
-				"node":   node,
-				"action": "resume",
-				"status": "success",
-			}
-			b, _ := yaml.Marshal(output)
-			fmt.Print(string(b))
-
-		case config.OutputFormatText:
-			fmt.Printf("VM %s resumed successfully\n", vmid)
-		}
-
-		return nil
+		return output.PrintSuccess(fmt.Sprintf("VM %s resumed successfully", vmid), map[string]interface{}{
+			"vmid":   vmid,
+			"node":   node,
+			"action": "resume",
+		})
 	},
 }
 

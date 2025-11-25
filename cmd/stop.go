@@ -15,7 +15,10 @@
 package cmd
 
 import (
+	"fmt"
+
 	"pvecli/config"
+	"pvecli/internal/output"
 	"pvecli/internal/proxmox"
 
 	"github.com/spf13/cobra"
@@ -34,11 +37,22 @@ var stopCmd = &cobra.Command{
 			return err
 		}
 		client := proxmox.NewClient(cfg)
-		node, _, err := client.FindNodeByVMID(vmid)
+		node, vmType, err := client.FindNodeByVMID(vmid)
 		if err != nil {
 			return err
 		}
-		return client.VMAction(node, vmid, "stop")
+		err = client.VMAction(node, vmid, "stop")
+		if err != nil {
+			return err
+		}
+		
+		// Output success message
+		data := map[string]interface{}{
+			"vmid": vmid,
+			"node": node,
+			"type": vmType,
+		}
+		return output.PrintSuccess(fmt.Sprintf("VM/CT %s stopped successfully", vmid), data)
 	},
 }
 

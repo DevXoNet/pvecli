@@ -15,21 +15,22 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
-	"pvecli/config"
+	"pvecli/internal/output"
 	"pvecli/internal/proxmox"
+	"pvecli/config"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var templateCmd = &cobra.Command{
-	Use:   "template <vmid>",
-	Short: "Convert VM to template",
-	Long:  "Convert a VM into a template (cannot be undone easily)",
-	Args:  cobra.ExactArgs(1),
+	Use:           "template <vmid>",
+	Short:         "Convert VM to template",
+	Long:          "Convert a VM into a template (cannot be undone easily)",
+	Args:          cobra.ExactArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vmid := args[0]
 
@@ -55,35 +56,11 @@ var templateCmd = &cobra.Command{
 			return fmt.Errorf("failed to create template: %w", err)
 		}
 
-		// Output based on configured format
-		outputFormat := config.GetOutputFormat()
-
-		switch outputFormat {
-		case config.OutputFormatJSON:
-			output := map[string]interface{}{
-				"vmid":   vmid,
-				"node":   node,
-				"action": "template",
-				"status": "success",
-			}
-			b, _ := json.MarshalIndent(output, "", "  ")
-			fmt.Println(string(b))
-
-		case config.OutputFormatYAML:
-			output := map[string]interface{}{
-				"vmid":   vmid,
-				"node":   node,
-				"action": "template",
-				"status": "success",
-			}
-			b, _ := yaml.Marshal(output)
-			fmt.Print(string(b))
-
-		case config.OutputFormatText:
-			fmt.Printf("VM %s converted to template successfully\n", vmid)
-		}
-
-		return nil
+		return output.PrintSuccess(fmt.Sprintf("VM %s converted to template successfully", vmid), map[string]interface{}{
+			"vmid":   vmid,
+			"node":   node,
+			"action": "template",
+		})
 	},
 }
 

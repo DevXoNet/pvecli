@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//TODO fix the output
-
 package cmd
 
 import (
@@ -21,6 +19,7 @@ import (
 	"strconv"
 
 	"pvecli/config"
+	"pvecli/internal/output"
 	"pvecli/internal/proxmox"
 
 	"github.com/spf13/cobra"
@@ -34,10 +33,11 @@ var (
 )
 
 var migrateCmd = &cobra.Command{
-	Use:          "migrate <vmid/ctid> --target <node>",
-	Short:        "Migrate a VM or container to another node",
-	SilenceUsage: true,
-	Args:         cobra.ExactArgs(1),
+	Use:           "migrate <vmid/ctid> --target <node>",
+	Short:         "Migrate a VM or container to another node",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Args:          cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if migrateTarget == "" {
 			return fmt.Errorf("--target is required")
@@ -75,12 +75,29 @@ var migrateCmd = &cobra.Command{
 			if err := client.WaitForTask(node, taskID, migrateTimeout); err != nil {
 				return fmt.Errorf("migration failed: %w", err)
 			}
-			fmt.Println("✓ Migration completed successfully")
+			
+			// Output success
+			data := map[string]interface{}{
+				"vmid":        id,
+				"type":        vmType,
+				"source_node": node,
+				"target_node": migrateTarget,
+				"online":      migrateOnline,
+				"task_id":     taskID,
+			}
+			return output.PrintSuccess("Migration completed successfully", data)
 		} else {
 			fmt.Println("Hint: use --wait to wait for completion")
+			data := map[string]interface{}{
+				"vmid":        id,
+				"type":        vmType,
+				"source_node": node,
+				"target_node": migrateTarget,
+				"online":      migrateOnline,
+				"task_id":     taskID,
+			}
+			return output.PrintSuccess("Migration task started", data)
 		}
-
-		return nil
 	},
 }
 

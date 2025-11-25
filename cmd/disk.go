@@ -15,14 +15,13 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"pvecli/config"
+	"pvecli/internal/output"
 	"pvecli/internal/proxmox"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -37,10 +36,12 @@ var diskCmd = &cobra.Command{
 }
 
 var diskResizeCmd = &cobra.Command{
-	Use:   "resize <vmid>",
-	Short: "Resize VM disk",
-	Long:  "Resize a VM disk (can only increase size)",
-	Args:  cobra.ExactArgs(1),
+	Use:           "resize <vmid>",
+	Short:         "Resize VM disk",
+	Long:          "Resize a VM disk (can only increase size)",
+	Args:          cobra.ExactArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vmid := args[0]
 
@@ -70,39 +71,13 @@ var diskResizeCmd = &cobra.Command{
 			return fmt.Errorf("failed to resize disk: %w", err)
 		}
 
-		// Output based on configured format
-		outputFormat := config.GetOutputFormat()
-
-		switch outputFormat {
-		case config.OutputFormatJSON:
-			output := map[string]interface{}{
-				"vmid":   vmid,
-				"node":   node,
-				"disk":   diskName,
-				"size":   diskSize,
-				"action": "resize",
-				"status": "success",
-			}
-			b, _ := json.MarshalIndent(output, "", "  ")
-			fmt.Println(string(b))
-
-		case config.OutputFormatYAML:
-			output := map[string]interface{}{
-				"vmid":   vmid,
-				"node":   node,
-				"disk":   diskName,
-				"size":   diskSize,
-				"action": "resize",
-				"status": "success",
-			}
-			b, _ := yaml.Marshal(output)
-			fmt.Print(string(b))
-
-		case config.OutputFormatText:
-			fmt.Printf("Disk %s on VM %s resized to %s\n", diskName, vmid, diskSize)
-		}
-
-		return nil
+		return output.PrintSuccess(fmt.Sprintf("Disk %s on VM %s resized to %s", diskName, vmid, diskSize), map[string]interface{}{
+			"vmid":   vmid,
+			"node":   node,
+			"disk":   diskName,
+			"size":   diskSize,
+			"action": "resize",
+		})
 	},
 }
 

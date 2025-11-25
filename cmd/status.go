@@ -15,20 +15,19 @@
 package cmd
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"pvecli/config"
+	"pvecli/internal/output"
 	"pvecli/internal/proxmox"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var statusCmd = &cobra.Command{
-	Use:   "status <vmid/ctid>",
-	Short: "Show current status of VM or container",
-	Args:  cobra.ExactArgs(1),
+	Use:           "status <vmid/ctid>",
+	Short:         "Show current status of VM or container",
+	Args:          cobra.ExactArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadConfig()
 		if err != nil {
@@ -60,44 +59,16 @@ var statusCmd = &cobra.Command{
 			vmType = "VM"
 		}
 
-		// Output based on configured format
-		outputFormat := config.GetOutputFormat()
-
-		switch outputFormat {
-		case config.OutputFormatJSON:
-			output := map[string]interface{}{
-				"vmid":   vmid,
-				"name":   name,
-				"status": statusStr,
-				"type":   vmType,
-				"node":   node,
-			}
-			b, err := json.MarshalIndent(output, "", "  ")
-			if err != nil {
-				return fmt.Errorf("marshal json: %w", err)
-			}
-			fmt.Println(string(b))
-
-		case config.OutputFormatYAML:
-			output := map[string]interface{}{
-				"vmid":   vmid,
-				"name":   name,
-				"status": statusStr,
-				"type":   vmType,
-				"node":   node,
-			}
-			b, err := yaml.Marshal(output)
-			if err != nil {
-				return fmt.Errorf("marshal yaml: %w", err)
-			}
-			fmt.Print(string(b))
-
-		case config.OutputFormatText:
-			// Print compact status (original format)
-			fmt.Printf("%s %s: %s - %s\n", vmType, vmid, name, statusStr)
+		// Prepare output data
+		data := map[string]interface{}{
+			"vmid":   vmid,
+			"name":   name,
+			"status": statusStr,
+			"type":   vmType,
+			"node":   node,
 		}
 
-		return nil
+		return output.Print(data)
 	},
 }
 

@@ -188,6 +188,52 @@ func (c *Client) doRequestWithData(method, path string, data map[string]string, 
 	return nil
 }
 
+// doRequestWithJSON performs HTTP request with JSON data
+func (c *Client) doRequestWithJSON(method, path string, data interface{}, target interface{}) error {
+	if c.Debug {
+		fmt.Printf("DEBUG: %s %s%s with JSON data: %+v\n", method, c.BaseURL, path, data)
+	}
+
+	url := fmt.Sprintf("%s%s", c.BaseURL, path)
+
+	// Encode JSON data
+	var body io.Reader
+	if data != nil {
+		jsonData, err := json.Marshal(data)
+		if err != nil {
+			return fmt.Errorf("marshal json: %w", err)
+		}
+		body = bytes.NewReader(jsonData)
+	}
+
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("PVEAPIToken=%s=%s", c.TokenID, c.Secret))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		if c.Debug {
+			fmt.Printf("DEBUG: Response Status: %d\nDEBUG: Response Body: %s\n", resp.StatusCode, string(body))
+		}
+		return fmt.Errorf("http %d for %s %s: %s", resp.StatusCode, method, path, string(body))
+	}
+
+	if target != nil {
+		return json.NewDecoder(resp.Body).Decode(target)
+	}
+	return nil
+}
+
 // FriendlyError is an error that should be displayed without the 'Error:' prefix
 type FriendlyError struct {
 	Msg string
@@ -1234,4 +1280,199 @@ func (c *Client) ResumeVM(node, vmid string) error {
 func (c *Client) StartVM(node string, vmid int, vmType string) error {
 	endpoint := fmt.Sprintf("/nodes/%s/%s/%d/status/start", node, vmType, vmid)
 	return c.doRequestWithData("POST", endpoint, map[string]string{}, nil)
+}
+
+// Guest Agent structures
+type GuestAgentIPAddress struct {
+	IPAddress     string `json:"ip-address"`
+	IPAddressType string `json:"ip-address-type"`
+	Prefix        int    `json:"prefix"`
+}
+
+type GuestAgentNetworkInterface struct {
+	Name            string                 `json:"name"`
+	HardwareAddress string                 `json:"hardware-address,omitempty"`
+	IPAddresses     []GuestAgentIPAddress  `json:"ip-addresses,omitempty"`
+}
+
+type GuestAgentOSInfo struct {
+	Name          string `json:"name,omitempty"`
+	PrettyName    string `json:"pretty-name,omitempty"`
+	Version       string `json:"version,omitempty"`
+	VersionID     string `json:"version-id,omitempty"`
+	KernelRelease string `json:"kernel-release,omitempty"`
+	KernelVersion string `json:"kernel-version,omitempty"`
+	Machine       string `json:"machine,omitempty"`
+}
+
+type GuestAgentExecResult struct {
+	ExitCode int    `json:"exitcode"`
+	OutData  string `json:"out-data,omitempty"`
+	ErrData  string `json:"err-data,omitempty"`
+	Exited   int    `json:"exited"` // 0 = running, 1 = exited
+}
+
+type GuestAgentFSInfo struct {
+	Name       string `json:"name,omitempty"`
+	Mountpoint string `json:"mountpoint"`
+	Type       string `json:"type,omitempty"`
+	TotalBytes int64  `json:"total-bytes,omitempty"`
+	UsedBytes  int64  `json:"used-bytes,omitempty"`
+}
+
+// AgentPing pings the guest agent
+func (c *Client) AgentPing(node, vmid string) error {
+	endpoint := fmt.Sprintf("/nodes/%s/qemu/%s/agent/ping", node, vmid)
+	return c.doRequestWithData("POST", endpoint, map[string]string{}, nil)
+}
+
+// AgentGetNetworkInterfaces gets network interfaces from guest agent
+func (c *Client) AgentGetNetworkInterfaces(node, vmid string) ([]GuestAgentNetworkInterface, error) {
+	endpoint := fmt.Sprintf("/nodes/%s/qemu/%s/agent/network-get-interfaces", node, vmid)
+	
+	var response struct {
+		Data struct {
+			Result []GuestAgentNetworkInterface `json:"result"`
+		} `json:"data"`
+	}
+	
+	err := c.doRequest("GET", endpoint, &response)
+	if err != nil {
+		return nil, err
+	}
+	
+	return response.Data.Result, nil
+}
+
+// AgentGetOSInfo gets OS information from guest agent
+func (c *Client) AgentGetOSInfo(node, vmid string) (*GuestAgentOSInfo, error) {
+	endpoint := fmt.Sprintf("/nodes/%s/qemu/%s/agent/get-osinfo", node, vmid)
+	
+	var response struct {
+		Data struct {
+			Result GuestAgentOSInfo `json:"result"`
+		} `json:"data"`
+	}
+	
+	err := c.doRequest("GET", endpoint, &response)
+	if err != nil {
+		return nil, err
+	}
+	
+	return &response.Data.Result, nil
+}
+
+// AgentExec executes a command via guest agent
+func (c *Client) AgentExec(node, vmid string, command []string) (*GuestAgentExecResult, error) {
+	endpoint := fmt.Sprintf("/nodes/%s/qemu/%s/agent/exec", node, vmid)
+	
+	// First, start the command
+	// Proxmox expects command as a JSON array
+	data := map[string]interface{}{
+		"command": command,
+	}
+	
+	if c.Debug {
+		fmt.Printf("DEBUG: Executing command: %v\n", command)
+	}
+	
+	var execResponse struct {
+		Data struct {
+			PID int `json:"pid"`
+		} `json:"data"`
+	}
+	
+	err := c.doRequestWithJSON("POST", endpoint, data, &execResponse)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Then get the status
+	pid := execResponse.Data.PID
+	statusEndpoint := fmt.Sprintf("/nodes/%s/qemu/%s/agent/exec-status", node, vmid)
+	
+	var statusResponse struct {
+		Data struct {
+			Result GuestAgentExecResult `json:"result"`
+		} `json:"data"`
+	}
+	
+	// Wait for command to complete (with timeout)
+	// Start checking immediately, but with longer intervals
+	var lastResult *GuestAgentExecResult
+	for i := 0; i < 30; i++ {
+		// Use query parameter for GET request
+		statusURL := fmt.Sprintf("%s?pid=%d", statusEndpoint, pid)
+		
+		if c.Debug {
+			fmt.Printf("DEBUG: Checking exec status (attempt %d/30): %s\n", i+1, statusURL)
+		}
+		
+		err = c.doRequest("GET", statusURL, &statusResponse)
+		if err != nil {
+			if c.Debug {
+				fmt.Printf("DEBUG: exec-status error: %v\n", err)
+			}
+			// If PID doesn't exist, the command finished very quickly
+			// Return the last result we got, or success with empty output
+			if strings.Contains(err.Error(), "PID") && strings.Contains(err.Error(), "does not exist") {
+				if lastResult != nil && lastResult.OutData != "" {
+					if c.Debug {
+						fmt.Printf("DEBUG: PID gone, returning last result: exited=%d, exitcode=%d, out-data=%q\n",
+							lastResult.Exited, lastResult.ExitCode, lastResult.OutData)
+					}
+					// Mark as exited since PID is gone
+					lastResult.Exited = 1
+					return lastResult, nil
+				}
+				// PID gone but no output captured - command was too fast
+				return &GuestAgentExecResult{
+					ExitCode: 0,
+					Exited:   1,
+				}, nil
+			}
+			return nil, err
+		}
+		
+		// Save a copy of the result
+		result := statusResponse.Data.Result
+		lastResult = &result
+		
+		if c.Debug {
+			fmt.Printf("DEBUG: exec-status response: exited=%v, exitcode=%d, out-data=%q\n", 
+				statusResponse.Data.Result.Exited, statusResponse.Data.Result.ExitCode, statusResponse.Data.Result.OutData)
+		}
+		
+		if statusResponse.Data.Result.Exited == 1 {
+			return &statusResponse.Data.Result, nil
+		}
+		
+		// If still running, wait before next check
+		// Use longer delay for first checks to give command time to complete
+		if i == 0 {
+			time.Sleep(500 * time.Millisecond)
+		} else {
+			time.Sleep(200 * time.Millisecond)
+		}
+	}
+	
+	return nil, fmt.Errorf("command execution timeout")
+}
+
+// AgentGetFSInfo gets filesystem information from guest agent
+func (c *Client) AgentGetFSInfo(node, vmid string) ([]GuestAgentFSInfo, error) {
+	endpoint := fmt.Sprintf("/nodes/%s/qemu/%s/agent/get-fsinfo", node, vmid)
+	
+	var response struct {
+		Data struct {
+			Result []GuestAgentFSInfo `json:"result"`
+		} `json:"data"`
+	}
+	
+	err := c.doRequest("GET", endpoint, &response)
+	if err != nil {
+		return nil, err
+	}
+	
+	return response.Data.Result, nil
 }
