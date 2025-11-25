@@ -136,4 +136,3 @@ func printText(data interface{}) error {
 	}
 	return nil
 }
-
