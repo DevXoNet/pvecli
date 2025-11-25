@@ -20,7 +20,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"pvecli/config"
-	"pvecli/internal/proxmox"
+	"pvecli/internal/output"
+	"pvecli/internal/pve"
 	"pvecli/internal/ssh"
 )
 
@@ -31,8 +32,10 @@ var (
 )
 
 var consoleCmd = &cobra.Command{
-	Use:   "console <vmid>",
-	Short: "Open an SSH console to a VM or container's host node",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Use:           "console <vmid>",
+	Short:         "Open an SSH console to a VM or container's host node",
 	Long: `Open an interactive SSH console to the Proxmox node hosting the specified VM or container.
 
 This connects you to the host node via SSH, not directly to the VM/container.
@@ -53,14 +56,16 @@ Press Ctrl+D or type 'exit' to close the SSH session.`,
 		// Load configuration
 		cfg, err := config.LoadConfig()
 		if err != nil {
-			return fmt.Errorf("config error: %w", err)
+			output.PrintError(fmt.Errorf("config error: %w", err))
+			return nil
 		}
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		// Get cluster config for SSH settings
 		cluster, err := config.GetCurrentCluster()
 		if err != nil {
-			return err
+			output.PrintError(err)
+			return nil
 		}
 
 		// Get SSH settings from config or flags
@@ -92,14 +97,15 @@ Press Ctrl+D or type 'exit' to close the SSH session.`,
 		fmt.Printf("Locating instance %s...\n", vmid)
 		node, instanceType, err := client.FindNodeByVMID(vmid)
 		if err != nil {
-			return err
+			output.PrintError(err)
+			return nil
 		}
 
 		// Try to get VM/container IP
 		var vmIP string
 		var ipErr error
 		
-		if instanceType == "vm" {
+		if instanceType == "qemu" {
 			fmt.Printf("Getting IP from QEMU Guest Agent...\n")
 			vmIP, ipErr = client.GetVMIPFromAgent(node, vmid)
 		} else {
@@ -112,7 +118,7 @@ Press Ctrl+D or type 'exit' to close the SSH session.`,
 			fmt.Printf("Could not get %s IP: %v\n", instanceType, ipErr)
 			fmt.Printf("\nFalling back to node SSH connection...\n")
 			fmt.Printf("After connecting, use:\n")
-			if instanceType == "vm" {
+			if instanceType == "qemu" {
 				fmt.Printf("  qm terminal %s    (for VM console)\n", vmid)
 			} else {
 				fmt.Printf("  pct console %s    (for container console)\n", vmid)
@@ -122,7 +128,8 @@ Press Ctrl+D or type 'exit' to close the SSH session.`,
 			// Get node IP
 			nodes, err := client.GetNodes()
 			if err != nil {
-				return fmt.Errorf("failed to get nodes: %w", err)
+				output.PrintError(fmt.Errorf("failed to get nodes: %w", err))
+				return nil
 			}
 
 			var nodeIP string
@@ -134,7 +141,8 @@ Press Ctrl+D or type 'exit' to close the SSH session.`,
 			}
 
 			if nodeIP == "" {
-				return fmt.Errorf("could not find IP for node %s", node)
+				output.PrintError(fmt.Errorf("could not find IP for node %s", node))
+				return nil
 			}
 
 			vmIP = nodeIP
@@ -156,7 +164,11 @@ Press Ctrl+D or type 'exit' to close the SSH session.`,
 		sshCmd.Stdout = os.Stdout
 		sshCmd.Stderr = os.Stderr
 
-		return sshCmd.Run()
+		if err := sshCmd.Run(); err != nil {
+			output.PrintError(err)
+			return nil
+		}
+		return nil
 	},
 }
 

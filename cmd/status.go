@@ -17,7 +17,7 @@ package cmd
 import (
 	"pvecli/config"
 	"pvecli/internal/output"
-	"pvecli/internal/proxmox"
+	"pvecli/internal/pve"
 
 	"github.com/spf13/cobra"
 )
@@ -34,7 +34,7 @@ var statusCmd = &cobra.Command{
 			return err
 		}
 
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 		vmid := args[0]
 
 		// Find which node has this VM/CT and its type

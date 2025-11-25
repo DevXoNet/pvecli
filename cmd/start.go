@@ -19,7 +19,7 @@ import (
 
 	"pvecli/config"
 	"pvecli/internal/output"
-	"pvecli/internal/proxmox"
+	"pvecli/internal/pve"
 
 	"github.com/spf13/cobra"
 )
@@ -36,7 +36,7 @@ var startCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 		node, vmType, err := client.FindNodeByVMID(vmid)
 		if err != nil {
 			return err

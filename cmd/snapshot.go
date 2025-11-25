@@ -20,7 +20,7 @@ import (
 
 	"pvecli/config"
 	"pvecli/internal/output"
-	"pvecli/internal/proxmox"
+	"pvecli/internal/pve"
 
 	"github.com/spf13/cobra"
 )
@@ -53,7 +53,7 @@ Example:
 		if err != nil {
 			return fmt.Errorf("config error: %w", err)
 		}
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		// Find which node hosts this VM/container
 		node, instanceType, err := client.FindNodeByVMID(vmid)
@@ -113,7 +113,7 @@ Example:
 		if err != nil {
 			return fmt.Errorf("config error: %w", err)
 		}
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		// Find which node hosts this VM/container
 		node, instanceType, err := client.FindNodeByVMID(vmid)

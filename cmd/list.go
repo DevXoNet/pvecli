@@ -22,7 +22,7 @@ import (
 	"strconv"
 
 	"pvecli/config"
-	"pvecli/internal/proxmox"
+	"pvecli/internal/pve"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
@@ -51,15 +51,17 @@ type vmEntry struct {
 }
 
 var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List all VMs across the cluster or only from a specific node",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Use:           "list",
+	Short:         "List all VMs across the cluster or only from a specific node",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadConfig()
 		if err != nil {
 			return fmt.Errorf("config error: %w", err)
 		}
 
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		nodes, err := client.GetNodes()
 		if err != nil {

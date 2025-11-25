@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	"pvecli/internal/output"
-	"pvecli/internal/proxmox"
+	"pvecli/internal/pve"
 	"pvecli/config"
 
 	"github.com/spf13/cobra"
@@ -38,7 +38,7 @@ var templateCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("config error: %w", err)
 		}
-		client := proxmox.NewClient(cfg)
+		client := pve.NewClient(cfg)
 
 		// Find node
 		node, instanceType, err := client.FindNodeByVMID(vmid)
@@ -46,7 +46,7 @@ var templateCmd = &cobra.Command{
 			return err
 		}
 
-		if instanceType != "vm" {
+		if instanceType != "qemu" {
 			return fmt.Errorf("only VMs can be converted to templates")
 		}
 
