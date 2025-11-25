@@ -1,3 +1,18 @@
+<p align="center">
+
+  ![Code Quality](https://github.com/DevXoNet/pvecli/actions/workflows/quality.yml/badge.svg)
+  ![Build](https://img.shields.io/badge/Build-Passing-brightgreen)
+  ![Security Scan](https://img.shields.io/badge/Security-Scanner%20Passed-brightgreen)
+  ![Static Analysis](https://img.shields.io/badge/SAST-Passed-blueviolet)
+  ![Lint](https://img.shields.io/badge/Lint-golangci--lint%20clean-success)
+  ![Tests](https://img.shields.io/badge/Tests-Passing-brightgreen)
+  ![Go Version](https://img.shields.io/badge/Go-1.25-blue)
+  ![License](https://img.shields.io/badge/License-Apache%202.0-green)
+
+</p>
+
+
+
 # pvecli
 
 `pvecli` is a lightweight, secure, and extensible command-line interface (CLI) designed for efficient management of Proxmox Virtual Environment (PVE) clusters. Built in Go, it provides a unified, developer-friendly way to interact with multiple Proxmox nodes via a REST API, making it ideal for automation, scripting, and daily operations.
