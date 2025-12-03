@@ -68,8 +68,7 @@ func init() {
 	monitoring.Init(rootCmd)
 	task.Init(rootCmd)
 
-	// Config command stays in cmd package
-	rootCmd.AddCommand(configCmd)
+	// Config command is registered in config.go init() function
 }
 
 func Execute() {

@@ -25,5 +25,5 @@ func Init(root *cobra.Command) {
 	root.AddCommand(infoCmd)
 	root.AddCommand(consoleCmd)
 	root.AddCommand(snapshotCmd)
-	root.AddCommand(novncCmd)
+	// novncCmd removed - functionality merged into consoleCmd
 }
