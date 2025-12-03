@@ -31,14 +31,14 @@ import (
 )
 
 var (
-	consoleSSHUser    string
-	consoleSSHKeyPath string
-	consoleSSHPort    int
-	consoleSSH        bool
-	consoleTerminal   bool
-	consoleVNCViewer  bool
-	consoleLocalPort  int
-	consoleRemotePort int
+	consoleSSHUser     string
+	consoleSSHKeyPath  string
+	consoleSSHPort     int
+	consoleSSH         bool
+	consoleTerminal    bool
+	consoleVNCViewer   bool
+	consoleLocalPort   int
+	consoleRemotePort  int
 	consoleOpenBrowser bool
 )
 
