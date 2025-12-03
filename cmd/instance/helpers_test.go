@@ -33,8 +33,8 @@ func TestInstancePackage(t *testing.T) {
 	if infoCmd == nil {
 		t.Error("infoCmd should not be nil")
 	}
-	if novncCmd == nil {
-		t.Error("novncCmd should not be nil")
+	if consoleCmd == nil {
+		t.Error("consoleCmd should not be nil")
 	}
 }
 
@@ -49,7 +49,7 @@ func TestCommandNames(t *testing.T) {
 		{"Stop command", stopCmd.Use, "stop <vmid/ctid>"},
 		{"Status command", statusCmd.Use, "status <vmid/ctid>"},
 		{"Info command", infoCmd.Use, "info <vmid/ctid>"},
-		{"NoVNC command", novncCmd.Use, "novnc <vmid>"},
+		{"Console command", consoleCmd.Use, "console <vmid>"},
 	}
 
 	for _, tt := range tests {
