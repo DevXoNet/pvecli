@@ -36,6 +36,16 @@ func TestRootCommand(t *testing.T) {
 	}
 }
 
+func TestOutputFlag(t *testing.T) {
+	flag := rootCmd.PersistentFlags().Lookup("output")
+	if flag == nil {
+		t.Fatal("Output flag not found")
+	}
+	if flag.Shorthand != "o" {
+		t.Errorf("Expected output flag shorthand 'o', got %q", flag.Shorthand)
+	}
+}
+
 func TestDebugFlag(t *testing.T) {
 	// Test that debug flag exists
 	flag := rootCmd.PersistentFlags().Lookup("debug")

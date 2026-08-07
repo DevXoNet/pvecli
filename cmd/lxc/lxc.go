@@ -130,17 +130,16 @@ Examples:
 		}
 
 		if len(lxcTemplates) == 0 {
-			output.Print(map[string]interface{}{
+			return output.Print(map[string]interface{}{
 				"message":   "No LXC templates found",
 				"templates": []string{},
 			})
 		} else {
-			output.Print(map[string]interface{}{
+			return output.Print(map[string]interface{}{
 				"count":     len(lxcTemplates),
 				"templates": lxcTemplates,
 			})
 		}
-		return nil
 	},
 }
 

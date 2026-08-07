@@ -15,9 +15,13 @@
 package output
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"sort"
+	"strings"
 
 	"pvecli/config"
 
@@ -95,11 +99,11 @@ func PrintSuccess(message string, data map[string]interface{}) error {
 
 // getOutputFormat returns the configured output format
 func getOutputFormat() config.OutputFormat {
-	cfg, err := config.LoadConfig()
+	_, err := config.LoadConfig()
 	if err != nil {
-		return config.OutputFormatJSON
+		return config.GetOutputFormat()
 	}
-	return cfg.OutputFormat
+	return config.GetOutputFormat()
 }
 
 // printJSON outputs data as JSON
@@ -122,17 +126,100 @@ func printYAML(data interface{}) error {
 	return nil
 }
 
-// printText outputs data as text
-// For text format, we expect data to be a string or have a String() method
+// printText outputs strings directly and renders structured values as readable,
+// deterministic key/value lists instead of falling back to JSON.
 func printText(data interface{}) error {
 	switch v := data.(type) {
 	case string:
 		fmt.Println(v)
+		return nil
 	case fmt.Stringer:
 		fmt.Println(v.String())
+		return nil
+	}
+
+	encoded, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("prepare text output: %w", err)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	decoder.UseNumber()
+	var normalized interface{}
+	if err := decoder.Decode(&normalized); err != nil {
+		return fmt.Errorf("prepare text output: %w", err)
+	}
+	return renderText(os.Stdout, normalized, 0)
+}
+
+func renderText(writer io.Writer, value interface{}, indent int) error {
+	prefix := strings.Repeat(" ", indent)
+	switch value := value.(type) {
+	case map[string]interface{}:
+		keys := make([]string, 0, len(value))
+		for key := range value {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		if len(keys) == 0 {
+			_, err := fmt.Fprintf(writer, "%s(none)\n", prefix)
+			return err
+		}
+		for _, key := range keys {
+			item := value[key]
+			if isScalar(item) {
+				if _, err := fmt.Fprintf(writer, "%s%s: %s\n", prefix, key, scalarText(item)); err != nil {
+					return err
+				}
+				continue
+			}
+			if _, err := fmt.Fprintf(writer, "%s%s:\n", prefix, key); err != nil {
+				return err
+			}
+			if err := renderText(writer, item, indent+2); err != nil {
+				return err
+			}
+		}
+	case []interface{}:
+		if len(value) == 0 {
+			_, err := fmt.Fprintf(writer, "%s(none)\n", prefix)
+			return err
+		}
+		for _, item := range value {
+			if isScalar(item) {
+				if _, err := fmt.Fprintf(writer, "%s- %s\n", prefix, scalarText(item)); err != nil {
+					return err
+				}
+				continue
+			}
+			if _, err := fmt.Fprintf(writer, "%s-\n", prefix); err != nil {
+				return err
+			}
+			if err := renderText(writer, item, indent+2); err != nil {
+				return err
+			}
+		}
 	default:
-		// Fallback to JSON for complex types
-		return printJSON(data)
+		_, err := fmt.Fprintf(writer, "%s%s\n", prefix, scalarText(value))
+		return err
 	}
 	return nil
+}
+
+func isScalar(value interface{}) bool {
+	switch value.(type) {
+	case nil, string, bool, json.Number,
+		int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64:
+		return true
+	default:
+		return false
+	}
+}
+
+func scalarText(value interface{}) string {
+	if value == nil {
+		return "null"
+	}
+	return fmt.Sprint(value)
 }

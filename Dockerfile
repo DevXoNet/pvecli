@@ -1,6 +1,6 @@
 # Multi-stage build for pvecli
 # Stage 1: Build the application
-FROM golang:1.22-alpine AS builder
+FROM golang:1.26.5-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git make

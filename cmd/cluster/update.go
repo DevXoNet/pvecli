@@ -142,7 +142,7 @@ The command will:
 				// Run apt update
 				_, err = sshClient.RunCommand("apt update -qq")
 				if err != nil {
-					sshClient.Close()
+					_ = sshClient.Close()
 					result.err = fmt.Errorf("apt update failed: %w", err)
 					resultsChan <- result
 					return
@@ -150,7 +150,7 @@ The command will:
 
 				// Check what would be upgraded
 				output, err := sshClient.RunCommand("apt list --upgradable 2>/dev/null | grep -v 'Listing' || true")
-				sshClient.Close()
+				_ = sshClient.Close()
 
 				if err != nil {
 					result.err = fmt.Errorf("failed to check updates: %w", err)
@@ -373,7 +373,7 @@ The command will:
 				fmt.Println("  → Running apt upgrade -y...")
 			}
 			output, err := sshClient.RunCommand("DEBIAN_FRONTEND=noninteractive apt upgrade -y")
-			sshClient.Close()
+			_ = sshClient.Close()
 
 			if err != nil {
 				if outputFormat == config.OutputFormatText {

@@ -27,11 +27,11 @@ environments:
 # Default environment to use when --env flag is not specified
 default_env: prod
 
-# Output format for commands (json, yaml, or text)
-# - json: Output as JSON (default)
+# Output format for commands (text, json, or yaml)
+# - text: Human-readable output (default)
+# - json: Structured output for automation
 # - yaml: Output as YAML
-# - text: Output as plain text
-output_format: json
+output_format: text
 
 # Enable debug mode
 debug: false
@@ -45,5 +45,5 @@ debug: false
 # token_id: "root@pam!your-token-id"
 # token_secret: "your-token-secret"
 # insecure_skip_verify: false
-# output_format: json
+# output_format: text
 # debug: false

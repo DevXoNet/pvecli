@@ -61,12 +61,11 @@ Examples:
 			return nil
 		}
 
-		output.Print(map[string]interface{}{
+		return output.Print(map[string]interface{}{
 			"repository": repository,
 			"node":       node,
 			"tags":       tags,
 		})
-		return nil
 	},
 }
 
@@ -165,17 +164,16 @@ Examples:
 		}
 
 		if len(ociImages) == 0 {
-			output.Print(map[string]interface{}{
+			return output.Print(map[string]interface{}{
 				"message": "No OCI images found",
 				"images":  []string{},
 			})
 		} else {
-			output.Print(map[string]interface{}{
+			return output.Print(map[string]interface{}{
 				"count":  len(ociImages),
 				"images": ociImages,
 			})
 		}
-		return nil
 	},
 }
 

@@ -287,8 +287,10 @@ Examples:
 		// Most VMs use display 0, so VNC port is 5900
 		vncDisplay := 0
 		if displayStr, ok := vmConfig["display"].(string); ok {
-			// Parse display string (e.g., "vnc=:0")
-			fmt.Sscanf(displayStr, "vnc=:%d", &vncDisplay)
+			// Parse display string (e.g., "vnc=:0"); retain display 0 if Proxmox returns another format.
+			if _, err := fmt.Sscanf(displayStr, "vnc=:%d", &vncDisplay); err != nil {
+				vncDisplay = 0
+			}
 		}
 
 		remotePort := consoleRemotePort

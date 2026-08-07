@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"pvecli/config"
+	"pvecli/internal/output"
 	"pvecli/internal/pve"
 
 	"github.com/olekukonko/tablewriter"
@@ -71,17 +72,16 @@ var clusterCmd = &cobra.Command{
 			// clusterStatusData is the data array
 			for _, item := range clusterStatusData {
 				if itemMap, ok := item.(map[string]interface{}); ok {
-					if itemMap["type"] == "cluster" && itemMap["name"] != nil {
-						clusterName = itemMap["name"].(string)
-					} else if itemMap["type"] == "node" {
-						if itemMap["name"] != nil {
-							nodeName := itemMap["name"].(string)
-							nodeIP := ""
-							if itemMap["ip"] != nil {
-								nodeIP = itemMap["ip"].(string)
-							}
-							nodeIPMap[nodeName] = nodeIP
+					itemType, _ := itemMap["type"].(string)
+					if itemType == "cluster" {
+						clusterName, _ = itemMap["name"].(string)
+					} else if itemType == "node" {
+						nodeName, ok := itemMap["name"].(string)
+						if !ok || nodeName == "" {
+							continue
 						}
+						nodeIP, _ := itemMap["ip"].(string)
+						nodeIPMap[nodeName] = nodeIP
 					}
 				}
 			}
@@ -124,9 +124,7 @@ var clusterCmd = &cobra.Command{
 					if resMap["type"] == "storage" {
 						// Get storage ID to avoid duplicates
 						storageID := ""
-						if resMap["storage"] != nil {
-							storageID = resMap["storage"].(string)
-						}
+						storageID, _ = resMap["storage"].(string)
 
 						if storageID != "" {
 							// Only add if not already counted
@@ -153,9 +151,7 @@ var clusterCmd = &cobra.Command{
 					// Get node CPU and RAM info
 					if resMap["type"] == "node" {
 						nodeName := ""
-						if resMap["node"] != nil {
-							nodeName = resMap["node"].(string)
-						}
+						nodeName, _ = resMap["node"].(string)
 
 						if resMap["maxcpu"] != nil {
 							if val, ok := resMap["maxcpu"].(float64); ok {
@@ -295,6 +291,52 @@ var clusterCmd = &cobra.Command{
 			return nodeDetails[i].name < nodeDetails[j].name
 		})
 
+		if config.GetOutputFormat() != config.OutputFormatText {
+			cpuPercent := 0.0
+			if totalCPU > 0 && nodesOnline > 0 {
+				cpuPercent = (usedCPU / float64(nodesOnline)) * 100
+			}
+			ramPercent := 0.0
+			if totalRAM > 0 {
+				ramPercent = (usedRAM / totalRAM) * 100
+			}
+			storagePercent := 0.0
+			if totalStorage > 0 {
+				storagePercent = (usedStorage / totalStorage) * 100
+			}
+
+			nodeOutput := make([]map[string]interface{}, 0, len(nodeDetails))
+			for _, node := range nodeDetails {
+				nodeOutput = append(nodeOutput, map[string]interface{}{
+					"name": node.name, "ip": node.ip, "status": node.status,
+					"cpu_percent": node.cpuPercent, "memory_percent": node.ramPercent,
+					"uptime": node.uptime,
+				})
+			}
+			health := "healthy"
+			if nodesOffline > 0 {
+				health = "warning"
+			}
+			return output.Print(map[string]interface{}{
+				"cluster": clusterName,
+				"health": map[string]interface{}{
+					"status": health, "nodes_online": nodesOnline,
+					"nodes_offline": nodesOffline, "nodes_total": nodesOnline + nodesOffline,
+				},
+				"instances": map[string]interface{}{
+					"vms_running": vmRunning, "vms_stopped": vmStopped,
+					"containers_running": ctRunning, "containers_stopped": ctStopped,
+					"templates": templates,
+				},
+				"resources": map[string]interface{}{
+					"cpu_percent": cpuPercent, "cpu_cores": totalCPU,
+					"memory_used_bytes": usedRAM, "memory_total_bytes": totalRAM, "memory_percent": ramPercent,
+					"storage_used_bytes": usedStorage, "storage_total_bytes": totalStorage, "storage_percent": storagePercent,
+				},
+				"nodes": nodeOutput,
+			})
+		}
+
 		// Print header with wider border (88 chars)
 		borderTop := "╔════════════════════════════════════════════════════════════════════════════════════════╗"
 		borderBottom := "╚════════════════════════════════════════════════════════════════════════════════════════╝"
@@ -426,15 +468,13 @@ var clusterCmd = &cobra.Command{
 			if !ok {
 				continue
 			}
-			if resMap["type"] != "storage" || resMap["plugintype"] == nil {
+			resourceType, _ := resMap["type"].(string)
+			plugintype, ok := resMap["plugintype"].(string)
+			if resourceType != "storage" || !ok {
 				continue
 			}
 
-			plugintype := resMap["plugintype"].(string)
-			storageName := ""
-			if resMap["storage"] != nil {
-				storageName = resMap["storage"].(string)
-			}
+			storageName, _ := resMap["storage"].(string)
 
 			// Check for PBS, NFS, ZFS, Ceph
 			if plugintype == "pbs" || plugintype == "nfs" || plugintype == "zfspool" || plugintype == "rbd" {
@@ -443,13 +483,8 @@ var clusterCmd = &cobra.Command{
 					continue
 				}
 
-				var used, total float64
-				if resMap["disk"] != nil {
-					used = resMap["disk"].(float64)
-				}
-				if resMap["maxdisk"] != nil {
-					total = resMap["maxdisk"].(float64)
-				}
+				used, _ := resMap["disk"].(float64)
+				total, _ := resMap["maxdisk"].(float64)
 
 				if total > 0 {
 					typeLabel := ""
