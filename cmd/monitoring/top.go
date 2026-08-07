@@ -58,9 +58,9 @@ var topCmd = &cobra.Command{
 		defer showCursor()
 
 		// Set terminal to raw mode for key detection
-		exec.Command("stty", "-F", "/dev/tty", "cbreak", "min", "1").Run()
-		exec.Command("stty", "-F", "/dev/tty", "-echo").Run()
-		defer exec.Command("stty", "-F", "/dev/tty", "echo").Run()
+		_ = exec.Command("stty", "-F", "/dev/tty", "cbreak", "min", "1").Run()
+		_ = exec.Command("stty", "-F", "/dev/tty", "-echo").Run()
+		defer func() { _ = exec.Command("stty", "-F", "/dev/tty", "echo").Run() }()
 
 		// Channel for quit signal
 		quit := make(chan bool)
@@ -69,7 +69,10 @@ var topCmd = &cobra.Command{
 		go func() {
 			b := make([]byte, 1)
 			for {
-				os.Stdin.Read(b)
+				n, err := os.Stdin.Read(b)
+				if err != nil || n == 0 {
+					return
+				}
 				if b[0] == 'q' || b[0] == 'Q' {
 					quit <- true
 					return
@@ -435,7 +438,7 @@ func clearScreen() {
 		cmd = exec.Command("cmd", "/c", "cls")
 	}
 	cmd.Stdout = os.Stdout
-	cmd.Run()
+	_ = cmd.Run()
 }
 
 func hideCursor() {

@@ -88,5 +88,5 @@ func init() {
 	// Register flags
 	diskResizeCmd.Flags().StringVar(&diskName, "disk", "scsi0", "Disk to resize (e.g., scsi0, virtio0)")
 	diskResizeCmd.Flags().StringVar(&diskSize, "size", "", "New size (e.g., +10G, 50G)")
-	diskResizeCmd.MarkFlagRequired("size")
+	_ = diskResizeCmd.MarkFlagRequired("size")
 }

@@ -146,9 +146,9 @@ func init() {
 	// Flags for snapshot creation
 	snapshotCmd.Flags().StringVar(&snapshotName, "name", "", "Snapshot name (required)")
 	snapshotCmd.Flags().StringVar(&snapshotDescription, "description", "", "Snapshot description")
-	snapshotCmd.MarkFlagRequired("name")
+	_ = snapshotCmd.MarkFlagRequired("name")
 
 	// Flags for snapshot deletion
 	snapshotDelCmd.Flags().StringVar(&snapshotName, "name", "", "Snapshot name to delete (required)")
-	snapshotDelCmd.MarkFlagRequired("name")
+	_ = snapshotDelCmd.MarkFlagRequired("name")
 }

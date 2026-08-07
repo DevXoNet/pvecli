@@ -81,7 +81,7 @@ func (c *Client) RunCommand(cmd string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create session: %w", err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }()
 
 	output, err := session.CombinedOutput(cmd)
 	if err != nil {

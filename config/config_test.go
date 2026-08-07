@@ -22,10 +22,8 @@ import (
 
 func TestLoadConfig_MissingFile(t *testing.T) {
 	// Set a non-existent config path
-	originalHome := os.Getenv("HOME")
 	tempDir := t.TempDir()
-	os.Setenv("HOME", tempDir)
-	defer os.Setenv("HOME", originalHome)
+	t.Setenv("HOME", tempDir)
 
 	_, err := LoadConfig()
 	if err == nil {
@@ -37,7 +35,9 @@ func TestLoadConfig_ValidConfig(t *testing.T) {
 	// Create a temporary config file
 	tempDir := t.TempDir()
 	configDir := filepath.Join(tempDir, ".devxo")
-	os.MkdirAll(configDir, 0755)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatalf("create config directory: %v", err)
+	}
 
 	configFile := filepath.Join(configDir, "pve.yaml")
 	configContent := `api_url: https://test.example.com:8006/api2/json
@@ -51,9 +51,7 @@ insecure_skip_verify: true
 	}
 
 	// Set HOME to temp dir
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tempDir)
-	defer os.Setenv("HOME", originalHome)
+	t.Setenv("HOME", tempDir)
 
 	cfg, err := LoadConfig()
 	if err != nil {

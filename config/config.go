@@ -200,7 +200,7 @@ func SaveConfig(cfg *Config) error {
 	if err != nil {
 		return fmt.Errorf("create config file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if err := f.Chmod(0600); err != nil {
 		return fmt.Errorf("secure config file permissions: %w", err)
 	}

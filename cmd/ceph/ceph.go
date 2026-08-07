@@ -71,7 +71,7 @@ func withCephNode[T any](client *pve.Client, fetch func(string) (T, error)) (str
 		}
 		lastErr = err
 	}
-	return "", zero, fmt.Errorf("Ceph API unavailable on checked nodes: %w", lastErr)
+	return "", zero, fmt.Errorf("ceph API unavailable on checked nodes: %w", lastErr)
 }
 
 var statusCmd = &cobra.Command{
@@ -111,7 +111,7 @@ var healthCmd = &cobra.Command{
 		}
 		health, ok := status["health"]
 		if !ok {
-			return fmt.Errorf("Ceph status response does not contain health information")
+			return fmt.Errorf("ceph status response does not contain health information")
 		}
 		if config.GetOutputFormat() == config.OutputFormatText {
 			return printHealthText(node, status)

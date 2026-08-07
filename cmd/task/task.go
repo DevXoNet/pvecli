@@ -218,7 +218,9 @@ var taskWaitCmd = &cobra.Command{
 					return output.PrintSuccess("Task completed successfully", data)
 				} else {
 					// Failed - output status and return error
-					output.Print(status)
+					if err := output.Print(status); err != nil {
+						return err
+					}
 					return fmt.Errorf("task failed with exit status: %s", exitStatus)
 				}
 			}

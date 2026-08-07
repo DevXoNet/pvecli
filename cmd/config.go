@@ -266,7 +266,9 @@ func runConfig(cmd *cobra.Command, args []string) error {
 	sshPortStr = strings.TrimSpace(sshPortStr)
 	if sshPortStr != "" {
 		var sshPort int
-		fmt.Sscanf(sshPortStr, "%d", &sshPort)
+		if _, err := fmt.Sscanf(sshPortStr, "%d", &sshPort); err != nil {
+			return fmt.Errorf("invalid SSH port %q: %w", sshPortStr, err)
+		}
 		if sshPort > 0 {
 			cluster.SSHPort = sshPort
 		}
