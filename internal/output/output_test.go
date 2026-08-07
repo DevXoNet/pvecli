@@ -16,6 +16,7 @@ package output
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -50,11 +51,23 @@ func TestPrintText(t *testing.T) {
 		t.Errorf("printText with string failed: %v", err)
 	}
 
-	// Test with map (fallback to JSON)
-	data := map[string]string{"test": "value"}
-	err = printText(data)
-	if err != nil {
-		t.Errorf("printText with map failed: %v", err)
+	// Structured values must render as human-readable text, not JSON.
+	var output strings.Builder
+	data := map[string]interface{}{
+		"status": "running",
+		"items":  []interface{}{map[string]interface{}{"id": 100, "name": "vm"}},
+	}
+	if err := renderText(&output, data, 0); err != nil {
+		t.Fatalf("renderText failed: %v", err)
+	}
+	got := output.String()
+	for _, expected := range []string{"status: running", "items:", "id: 100", "name: vm"} {
+		if !strings.Contains(got, expected) {
+			t.Errorf("renderText output %q does not contain %q", got, expected)
+		}
+	}
+	if strings.HasPrefix(strings.TrimSpace(got), "{") {
+		t.Errorf("renderText unexpectedly returned JSON: %s", got)
 	}
 }
 

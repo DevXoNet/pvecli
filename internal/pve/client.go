@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -36,6 +37,7 @@ type Client struct {
 	Insecure bool
 	Debug    bool
 	client   *http.Client
+	initErr  error
 }
 
 // NewClient creates a new Proxmox API client
@@ -50,7 +52,7 @@ func NewClient(cfg *config.Config) *Client {
 				InsecureSkipVerify: cfg.InsecureSkipVerify,
 			}
 		} else {
-			panic(fmt.Sprintf("failed to get cluster config: %v", err))
+			return &Client{initErr: fmt.Errorf("failed to get cluster config: %w", err)}
 		}
 	}
 
@@ -69,11 +71,17 @@ func NewClient(cfg *config.Config) *Client {
 
 // doRequest performs HTTP request
 func (c *Client) doRequest(method, path string, target interface{}) error {
+	if c.initErr != nil {
+		return c.initErr
+	}
 	if c.Debug {
 		fmt.Printf("DEBUG: %s %s%s\n", method, c.BaseURL, path)
 	}
-	url := fmt.Sprintf("%s%s", c.BaseURL, path)
-	req, _ := http.NewRequest(method, url, nil)
+	requestURL := fmt.Sprintf("%s%s", c.BaseURL, path)
+	req, err := http.NewRequest(method, requestURL, nil)
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
 	req.Header.Set("Authorization", fmt.Sprintf("PVEAPIToken=%s=%s", c.TokenID, c.Secret))
 
 	resp, err := c.client.Do(req)
@@ -120,23 +128,23 @@ func (c *Client) doRequest(method, path string, target interface{}) error {
 
 // doRequestWithData performs HTTP request with form data
 func (c *Client) doRequestWithData(method, path string, data map[string]string, target interface{}) error {
+	if c.initErr != nil {
+		return c.initErr
+	}
 	if c.Debug {
 		fmt.Printf("DEBUG: %s %s%s with data: %v\n", method, c.BaseURL, path, data)
 	}
 
-	url := fmt.Sprintf("%s%s", c.BaseURL, path)
+	requestURL := fmt.Sprintf("%s%s", c.BaseURL, path)
 
-	formData := ""
+	formData := url.Values{}
 	for k, v := range data {
-		if formData != "" {
-			formData += "&"
-		}
-		formData += fmt.Sprintf("%s=%s", k, v)
+		formData.Set(k, v)
 	}
 
-	req, err := http.NewRequest(method, url, strings.NewReader(formData))
+	req, err := http.NewRequest(method, requestURL, strings.NewReader(formData.Encode()))
 	if err != nil {
-		return err
+		return fmt.Errorf("create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("PVEAPIToken=%s=%s", c.TokenID, c.Secret))

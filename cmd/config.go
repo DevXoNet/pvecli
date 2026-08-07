@@ -289,7 +289,7 @@ func runConfig(cmd *cobra.Command, args []string) error {
 
 	// Ask about output format only if not set
 	if cfg.OutputFormat == "" {
-		fmt.Print("\nOutput format (json/text/yaml, default: json): ")
+		fmt.Print("\nOutput format (text/json/yaml, default: text): ")
 		format, _ := reader.ReadString('\n')
 		format = strings.ToLower(strings.TrimSpace(format))
 		switch format {
@@ -297,11 +297,13 @@ func runConfig(cmd *cobra.Command, args []string) error {
 			cfg.OutputFormat = config.OutputFormatText
 		case "yaml":
 			cfg.OutputFormat = config.OutputFormatYAML
-		case "", "json":
+		case "json":
 			cfg.OutputFormat = config.OutputFormatJSON
+		case "":
+			cfg.OutputFormat = config.OutputFormatText
 		default:
-			fmt.Println("Invalid format, using default (json)")
-			cfg.OutputFormat = config.OutputFormatJSON
+			fmt.Println("Invalid format, using default (text)")
+			cfg.OutputFormat = config.OutputFormatText
 		}
 	}
 

@@ -3,3 +3,6 @@ pvecli
 .idea/
 .vscode/
 next.txt
+smoke-report.json
+__pycache__/
+*.pyc

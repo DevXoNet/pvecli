@@ -44,18 +44,35 @@ func SetDebug(d bool) {
 	debug = d
 }
 
-// GetOutputFormat returns the configured output format (defaults to JSON if not set)
+// GetOutputFormat returns the command-line override or configured output format.
 func GetOutputFormat() OutputFormat {
+	if outputFormatOverride != "" {
+		return outputFormatOverride
+	}
 	if cfg != nil && cfg.OutputFormat != "" {
 		return cfg.OutputFormat
 	}
-	return OutputFormatJSON
+	return OutputFormatText
+}
+
+// SetOutputFormat overrides the output format for the current command invocation.
+func SetOutputFormat(format OutputFormat) error {
+	switch format {
+	case "":
+		outputFormatOverride = ""
+	case OutputFormatJSON, OutputFormatText, OutputFormatYAML:
+		outputFormatOverride = format
+	default:
+		return fmt.Errorf("invalid output format %q (must be text, json, or yaml)", format)
+	}
+	return nil
 }
 
 // Global config instance
 var cfg *Config
 var debug bool
 var currentEnv string
+var outputFormatOverride OutputFormat
 
 // ClusterConfig holds configuration for a single Proxmox cluster
 type ClusterConfig struct {
@@ -102,7 +119,7 @@ func LoadConfig() (*Config, error) {
 
 	// Initialize config with default values
 	cfg = &Config{
-		OutputFormat: OutputFormatJSON,
+		OutputFormat: OutputFormatText,
 		Debug:        false,
 		Environments: make(map[string]*ClusterConfig),
 	}
@@ -178,12 +195,15 @@ func SaveConfig(cfg *Config) error {
 	cfg.TokenSecret = ""
 	cfg.InsecureSkipVerify = false
 
-	// Save the configuration
-	f, err := os.Create(path)
+	// API tokens are stored in this file, so it must only be readable by the owner.
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("create config file: %w", err)
 	}
 	defer f.Close()
+	if err := f.Chmod(0600); err != nil {
+		return fmt.Errorf("secure config file permissions: %w", err)
+	}
 
 	encoder := yaml.NewEncoder(f)
 	encoder.SetIndent(2)

@@ -14,7 +14,7 @@
 
 module pvecli
 
-go 1.25.5
+go 1.26.5
 
 require (
 	github.com/olekukonko/tablewriter v0.0.5

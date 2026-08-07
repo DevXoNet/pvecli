@@ -6,7 +6,7 @@
   ![Static Analysis](https://img.shields.io/badge/SAST-Passed-blueviolet)
   ![Lint](https://img.shields.io/badge/Lint-golangci--lint%20clean-success)
   ![Tests](https://img.shields.io/badge/Tests-Passing-brightgreen)
-  ![Go Version](https://img.shields.io/badge/Go-1.25-blue)
+  ![Go Version](https://img.shields.io/badge/Go-1.26.5-blue)
   ![License](https://img.shields.io/badge/License-Apache%202.0-green)
   ![CodeQL](https://github.com/DevXoNet/pvecli/actions/workflows/codeql.yml/badge.svg)
   ![Security Policy](https://img.shields.io/badge/Security-Policy%20Available-brightgreen)
@@ -63,7 +63,7 @@ Every commit in `main` and `dev` undergoes:
 ## Installation
 
 ### Prerequisites
-- Go 1.22 or later
+- Go 1.26.5 or later
 - Proxmox VE 9.0+ cluster with API access
 - API token with appropriate permissions
 
@@ -149,14 +149,22 @@ pvecli -e staging cluster
 pvecli supports multiple output formats that can be configured in `~/.devxo/pve.yaml`:
 
 ```yaml
-# Output format: json, yaml, or text
-output_format: json
+# Output format: text, json, or yaml
+output_format: text
 ```
 
 **Available formats:**
-- **json** (default): Structured JSON output, ideal for scripting and parsing
-- **yaml**: YAML format, human-readable and easy to edit
-- **text**: Plain text format, simple key-value pairs
+- **text** (default): Human-friendly tables and summaries
+- **json**: Structured JSON output, ideal for scripting and automation
+- **yaml**: Structured YAML output
+
+Override the configured format for a single command with `--output`/`-o`:
+
+```bash
+pvecli cluster                 # human-friendly output
+pvecli cluster --output json   # automation
+pvecli cluster -o yaml
+```
 
 ## Quick Start Examples
 
@@ -218,6 +226,7 @@ pvecli -e staging cluster
 - **top** - Real-time resource monitoring with graphs
 - **task** - Monitor and manage Proxmox tasks
 - **cluster** - View cluster information and health
+- **ceph** - Inspect Ceph health, OSDs, and pools
 - **console** - Interactive console access (VNC/SPICE)
 
 ### Configuration
@@ -225,6 +234,23 @@ pvecli -e staging cluster
 
 For detailed documentation on each command, see the [wiki](https://github.com/DevXoNet/pvecli/wiki).
 
+## Safe cluster smoke tests
+
+After building `pvecli`, install the YAML parser and run the non-destructive Python smoke-test suite:
+
+```bash
+python3 -m pip install PyYAML
+python3 scripts/smoke_test.py --storage Backups
+```
+
+Optional arguments:
+
+```bash
+python3 scripts/smoke_test.py --env dev --vmid 200 --storage Backups --timeout 60
+python3 scripts/smoke_test.py --skip-agent
+```
+
+The runner executes every command with `--help`, but functionally runs only an explicit read-only allowlist. Every safe command is executed against the real cluster in `text`, `json`, and `yaml` modes. The runner parses JSON and YAML, rejects JSON fallback in text mode, detects empty output, and records output excerpts for diagnosis. It never starts, stops, reboots, migrates, clones, resizes, updates, deletes, opens consoles, or executes commands inside guests. Results are written to `smoke-report.json`, and the process exits with status `1` when a test fails.
 
 ## Disclaimer
 

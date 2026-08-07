@@ -23,6 +23,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"pvecli/cmd/agent"
+	"pvecli/cmd/ceph"
 	"pvecli/cmd/cluster"
 	"pvecli/cmd/instance"
 	"pvecli/cmd/lxc"
@@ -40,28 +41,32 @@ import (
 
 var debugFlag bool
 var envFlag string
+var outputFlag string
 
 var rootCmd = &cobra.Command{
 	Use:   "pvecli",
 	Short: "Proxmox CLI tool",
 	Long:  "pvecli - Simple CLI tool for managing Proxmox Cluster\n\nDeveloped by DevXo part of vByte Ltd",
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		config.SetDebug(debugFlag)
 		if envFlag != "" {
 			config.SetEnvironment(envFlag)
 		}
+		return config.SetOutputFormat(config.OutputFormat(outputFlag))
 	},
 }
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&debugFlag, "debug", "d", false, "Enable debug output")
 	rootCmd.PersistentFlags().StringVarP(&envFlag, "env", "e", "", "Environment/cluster to use (prod, dev, staging, etc.)")
+	rootCmd.PersistentFlags().StringVarP(&outputFlag, "output", "o", "", "Output format: text, json, or yaml (overrides config)")
 
 	// Initialize all command packages
 	instance.Init(rootCmd)
 	vm.Init(rootCmd)
 	lxc.Init(rootCmd)
 	agent.Init(rootCmd)
+	ceph.Init(rootCmd)
 	cluster.Init(rootCmd)
 	storage.Init(rootCmd)
 	oci.Init(rootCmd)
@@ -92,10 +97,10 @@ func Execute() {
 		// Check if it's a friendly error (informational message)
 		if friendlyErr, ok := err.(*pve.FriendlyError); ok {
 			// Load config to get output format
-			cfg, cfgErr := config.LoadConfig()
+			_, cfgErr := config.LoadConfig()
 			outputFormat := config.OutputFormatText
 			if cfgErr == nil {
-				outputFormat = cfg.OutputFormat
+				outputFormat = config.GetOutputFormat()
 			}
 
 			// Parse the message to extract structured data
