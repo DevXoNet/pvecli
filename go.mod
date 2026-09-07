@@ -19,7 +19,7 @@ go 1.26.5
 require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/crypto v0.54.0 // includes ssh package
+	golang.org/x/crypto v0.56.0 // includes ssh package
 	gopkg.in/yaml.v3 v3.0.1
 )
 
